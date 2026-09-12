@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>JobAssist AI</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header class="header">
+      <div class="logo">
+        <div class="logo-mark">JA</div>
+        <div class="logo-text">JobAssist <em>AI</em></div>
+      </div>
+      <div class="status-pill" id="statusPill">Setup needed</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="profile">Profile</button>
+      <button class="tab" data-tab="resume">Resume</button>
+      <button class="tab" data-tab="prefs">Preferences</button>
+      <button class="tab" data-tab="companies">Companies</button>
+      <button class="tab" data-tab="context">My Context</button>
+      <button class="tab" data-tab="api">API</button>
+    </nav>
+
+    <!-- ── PROFILE TAB ── -->
+    <section class="pane active" id="tab-profile">
+
+      <!-- Resume upload -->
+      <div class="section-title">Resume</div>
+      <div class="field">
+        <div class="upload-zone" id="uploadZone">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M13 17V7M13 7l-4 4M13 7l4 4" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round"/><rect x="2" y="18" width="22" height="6" rx="2" stroke="#6B7280" stroke-width="1.6"/></svg>
+          <p class="upload-title">Drop PDF or TXT here</p>
+          <p class="upload-sub">Max 1MB · AI reads this as your only source of truth</p>
+          <input type="file" id="resumeFile" accept=".pdf,.txt" hidden />
+          <button class="btn-sm" id="browseBtn">Choose file</button>
+        </div>
+        <div class="file-pill hidden" id="filePill">
+          <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" stroke="#16A34A" stroke-width="1.2"/><path d="M4.5 7l2 2 3-3" stroke="#16A34A" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <span id="fileName">resume.pdf</span>
+          <button class="pill-remove" id="removeFile">×</button>
+        </div>
+      </div>
+
+      <!-- Personal info -->
+      <div class="section-title">Personal info</div>
+      <div class="field-row">
+        <div class="field">
+          <label>First name</label>
+          <input type="text" class="inp" id="firstName" placeholder="Rahul" />
+        </div>
+        <div class="field">
+          <label>Last name</label>
+          <input type="text" class="inp" id="lastName" placeholder="Sharma" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" class="inp" id="email" placeholder="rahul@email.com" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Phone / Mobile</label>
+          <input type="tel" class="inp" id="phone" placeholder="+91 98765 43210" />
+        </div>
+        <div class="field">
+          <label>Date of birth <span class="opt">optional</span></label>
+          <input type="text" class="inp" id="dob" placeholder="DD/MM/YYYY" />
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="section-title">Location</div>
+      <div class="field-row">
+        <div class="field">
+          <label>City</label>
+          <input type="text" class="inp" id="city" placeholder="Mumbai" />
+        </div>
+        <div class="field">
+          <label>State</label>
+          <input type="text" class="inp" id="state" placeholder="Maharashtra" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Country</label>
+          <input type="text" class="inp" id="country" placeholder="India" />
+        </div>
+        <div class="field">
+          <label>ZIP / Pincode</label>
+          <input type="text" class="inp" id="zipcode" placeholder="400001" />
+        </div>
+      </div>
+
+      <!-- Professional links -->
+      <div class="section-title">Professional links</div>
+      <div class="field">
+        <label>LinkedIn URL</label>
+        <div class="input-row">
+          <input type="url" class="inp" id="linkedinUrl" placeholder="https://linkedin.com/in/yourname" />
+          <button class="btn-connect" id="connectLinkedIn" title="Verify">
+            <svg width="14" height="14" viewBox="0 0 14 14"><rect width="14" height="14" rx="3" fill="#0077B5"/><path d="M4 6h1.5v4H4zM4.75 5.25A.75.75 0 104.75 4a.75.75 0 000 1.25zM6.5 6H8v.55c.28-.45.85-.65 1.35-.65C10.35 5.9 11 6.55 11 7.75V10H9.5V8c0-.45-.18-.75-.58-.75s-.92.3-.92.85V10H6.5V6z" fill="white"/></svg>
+          </button>
+        </div>
+        <p class="field-note" id="linkedinStatus"></p>
+      </div>
+      <div class="field">
+        <label>GitHub URL</label>
+        <div class="input-row">
+          <input type="url" class="inp" id="githubUrl" placeholder="https://github.com/yourhandle" />
+          <button class="btn-connect" id="connectGitHub" title="Fetch profile">
+            <svg width="14" height="14" viewBox="0 0 14 14"><path fill-rule="evenodd" clip-rule="evenodd" d="M7 0C3.13 0 0 3.22 0 7.2c0 3.18 2.02 5.88 4.82 6.84.35.06.48-.16.48-.35v-1.22c-1.96.44-2.37-.97-2.37-.97-.32-.84-.78-1.06-.78-1.06-.64-.45.05-.44.05-.44.71.05 1.08.75 1.08.75.63 1.1 1.65.79 2.05.6.06-.47.24-.79.44-.97-1.57-.18-3.22-.8-3.22-3.58 0-.79.27-1.44.72-1.94-.07-.19-.31-.92.07-1.91 0 0 .59-.2 1.93.73A6.6 6.6 0 017 3.42c.6 0 1.2.08 1.76.24 1.34-.93 1.93-.73 1.93-.73.38.99.14 1.72.07 1.91.45.5.71 1.15.71 1.94 0 2.79-1.66 3.4-3.23 3.58.25.22.48.67.48 1.35v2c0 .19.12.41.48.35C11.98 13.07 14 10.37 14 7.2 14 3.22 10.87 0 7 0z" fill="#1F2937"/></svg>
+          </button>
+        </div>
+        <p class="field-note" id="githubStatus"></p>
+      </div>
+      <div class="field">
+        <label>Portfolio / Website <span class="opt">optional</span></label>
+        <input type="url" class="inp" id="portfolioUrl" placeholder="https://yoursite.com" />
+      </div>
+
+      <!-- Work preferences -->
+      <div class="section-title">Work preferences</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Current CTC <span class="opt">optional</span></label>
+          <input type="text" class="inp" id="currentCtc" placeholder="e.g. 8 LPA" />
+        </div>
+        <div class="field">
+          <label>Expected CTC</label>
+          <input type="text" class="inp" id="expectedCtc" placeholder="e.g. 12 LPA" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Notice period</label>
+          <input type="text" class="inp" id="noticePeriod" placeholder="e.g. 30 days" />
+        </div>
+        <div class="field">
+          <label>Years of experience</label>
+          <input type="text" class="inp" id="experience" placeholder="e.g. 2" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Work authorization</label>
+          <select class="inp" id="workAuth">
+            <option value="">Select…</option>
+            <option value="authorized_no_sponsorship">Authorized — no sponsorship needed</option>
+            <option value="requires_sponsorship">Requires sponsorship</option>
+            <option value="citizen">Citizen</option>
+            <option value="permanent_resident">Permanent Resident / PR</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Willing to relocate?</label>
+          <select class="inp" id="relocate">
+            <option value="">Select…</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+            <option value="maybe">Open to discussion</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Preferred work mode</label>
+        <div class="seg-group">
+          <button class="seg" data-group="workMode" data-val="remote">Remote</button>
+          <button class="seg" data-group="workMode" data-val="hybrid">Hybrid</button>
+          <button class="seg" data-group="workMode" data-val="onsite">On-site</button>
+          <button class="seg active" data-group="workMode" data-val="any">Any</button>
+        </div>
+      </div>
+
+      <!-- Education -->
+      <div class="section-title">Education</div>
+      <div class="field">
+        <label>Highest degree</label>
+        <select class="inp" id="degree">
+          <option value="">Select…</option>
+          <option value="btech">B.Tech / B.E.</option>
+          <option value="bsc">B.Sc</option>
+          <option value="bca">BCA</option>
+          <option value="bcom">B.Com</option>
+          <option value="ba">B.A.</option>
+          <option value="mtech">M.Tech / M.E.</option>
+          <option value="msc">M.Sc</option>
+          <option value="mca">MCA</option>
+          <option value="mba">MBA</option>
+          <option value="phd">Ph.D</option>
+          <option value="diploma">Diploma</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>College / University</label>
+        <input type="text" class="inp" id="college" placeholder="IIT Delhi, VIT Vellore…" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Graduation year</label>
+          <input type="text" class="inp" id="gradYear" placeholder="2024" />
+        </div>
+        <div class="field">
+          <label>CGPA / Percentage</label>
+          <input type="text" class="inp" id="cgpa" placeholder="8.5 / 85%" />
+        </div>
+      </div>
+
+      <!-- Extra context -->
+      <div class="section-title">Extra context for AI</div>
+      <div class="field">
+        <label>Anything else the AI should know <span class="opt">optional</span></label>
+        <textarea class="inp ta" id="extraContext" rows="3"
+          placeholder="Career goals, strengths, preferred industries, things to avoid mentioning…"></textarea>
+      </div>
+
+      <button class="btn-primary" id="saveProfile">Save profile</button>
+      <p class="feedback hidden" id="profileMsg"></p>
+    </section>
+
+    <!-- ── RESUME TAB ── -->
+    <section class="pane" id="tab-resume">
+      <div class="resume-intro">
+        Paste a job description and click <strong>Tailor resume</strong> to get an ATS-optimised PDF for that specific role.
+      </div>
+
+      <div class="field">
+        <label>Job description</label>
+        <textarea class="inp ta" id="jdForResume" rows="6" placeholder="Paste the full job description here…"></textarea>
+      </div>
+      <div class="field">
+        <label>Style instructions <span class="opt">optional</span></label>
+        <textarea class="inp ta" id="resumeStyle" rows="2" placeholder='e.g. "Keep to 1 page. Use bullet points. Emphasise leadership."'></textarea>
+      </div>
+
+      <button class="btn-primary" id="tailorResume">Tailor my resume →</button>
+
+      <div class="loading-row hidden" id="resumeLoading">
+        <div class="spinner"></div><span>Tailoring your resume…</span>
+      </div>
+
+      <div class="resume-result hidden" id="resumeResult">
+        <div class="ats-bar">
+          <span class="ats-label">ATS score</span>
+          <div class="ats-track"><div class="ats-fill" id="atsFill"></div></div>
+          <span class="ats-score" id="atsScore">—</span>
+        </div>
+        <div class="keyword-section">
+          <p class="kw-title">Matched</p>
+          <div class="kw-chips" id="matchedKw"></div>
+          <p class="kw-title missing">Missing</p>
+          <div class="kw-chips" id="missingKw"></div>
+        </div>
+        <div class="field" style="margin-top:8px">
+          <label>Edit resume in plain English</label>
+          <div class="input-row">
+            <input type="text" class="inp" id="resumeEditPrompt"
+              placeholder='e.g. "Add more detail on my React projects"' />
+            <button class="btn-sm" id="applyEdit">Apply</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="downloadPdf">Download tailored PDF</button>
+      </div>
+      <p class="feedback hidden" id="resumeMsg"></p>
+    </section>
+
+    <!-- ── PREFERENCES TAB ── -->
+    <section class="pane" id="tab-prefs">
+      <div class="field">
+        <label>Answer length</label>
+        <div class="seg-group">
+          <button class="seg" data-group="style" data-val="concise">Concise</button>
+          <button class="seg active" data-group="style" data-val="balanced">Balanced</button>
+          <button class="seg" data-group="style" data-val="detailed">Detailed</button>
+        </div>
+        <p class="field-note">Concise = 2–3 sentences · Balanced = 1 paragraph · Detailed = 2–3 paragraphs</p>
+      </div>
+      <div class="field">
+        <label>Tone</label>
+        <select class="inp" id="toneSelect">
+          <option value="professional">Professional</option>
+          <option value="conversational">Conversational &amp; warm</option>
+          <option value="enthusiastic">Enthusiastic</option>
+          <option value="formal">Formal</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Custom instruction <span class="opt">optional</span></label>
+        <textarea class="inp ta" id="customInstruction" rows="2"
+          placeholder='e.g. "Always mention my open-source contributions"'></textarea>
+      </div>
+      <div class="field">
+        <div class="toggle-row">
+          <div>
+            <strong>Auto-fill on focus</strong>
+            <p class="field-note">Generate &amp; fill the field the moment you click it</p>
+          </div>
+          <div class="toggle" id="autoFillToggle"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="toggle-row">
+          <div>
+            <strong>Auto-detect job description</strong>
+            <p class="field-note">Scan the page for JD text to use as context</p>
+          </div>
+          <div class="toggle on" id="autoJdToggle"><div class="knob"></div></div>
+        </div>
+      </div>
+      <button class="btn-primary" id="savePrefs">Save preferences</button>
+      <p class="feedback hidden" id="prefsMsg"></p>
+    </section>
+
+    <!-- ── COMPANIES TAB ── -->
+    <section class="pane" id="tab-companies">
+      <p class="section-note">Save notes per company. These are injected as context when you apply.</p>
+      <div class="field">
+        <div class="input-row">
+          <input type="text" class="inp" id="companyName" placeholder="Company name" />
+          <button class="btn-sm" id="addCompany">Add</button>
+        </div>
+      </div>
+      <div class="companies-list" id="companiesList"></div>
+      <p class="feedback hidden" id="companiesMsg"></p>
+    </section>
+
+    <!-- ── MY CONTEXT TAB ── -->
+    <section class="pane" id="tab-context">
+      <div class="context-intro">
+        <p>Everything the AI knows about you. Expand any section to see details. Missing items auto-expand.</p>
+        <button class="btn-outline" id="refreshContext" style="width:100%">↻ Refresh</button>
+      </div>
+      <div class="loading-row hidden" id="contextLoading">
+        <div class="spinner"></div><span>Loading…</span>
+      </div>
+      <div id="contextSections"></div>
+    </section>
+
+    <!-- ── API TAB ── -->
+    <section class="pane" id="tab-api">
+      <div class="field">
+        <label>Gemini API key <span class="req">*</span></label>
+        <div class="input-row">
+          <input type="password" class="inp" id="apiKeyInput" placeholder="AIza…" autocomplete="off" />
+          <button class="btn-eye" id="toggleKey">
+            <svg width="15" height="15" viewBox="0 0 15 15"><path d="M1 7.5S3.5 3 7.5 3 14 7.5 14 7.5 11.5 12 7.5 12 1 7.5 1 7.5z" stroke="#6B7280" stroke-width="1.1"/><circle cx="7.5" cy="7.5" r="2" stroke="#6B7280" stroke-width="1.1"/></svg>
+          </button>
+        </div>
+        <p class="field-note">Stored locally only. Get yours at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></p>
+      </div>
+      <div class="callout">
+        <strong>GitHub</strong> — click the verify button on the Profile tab to fetch your public repos (no login needed).<br><br>
+        <strong>LinkedIn</strong> — URL is used as context. Full data requires LinkedIn OAuth approval.
+      </div>
+      <button class="btn-primary" id="saveKey">Save key</button>
+      <button class="btn-outline" id="testKey">Test connection</button>
+      <p class="feedback hidden" id="apiMsg"></p>
+    </section>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

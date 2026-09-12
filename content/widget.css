@@ -1,0 +1,331 @@
+/* ═══════════════════════════════════════════════════════════
+   JobAssist AI — Widget Styles v4
+   Uses IDs for high specificity without !important
+════════════════════════════════════════════════════════════ */
+
+/* ── Bubble ──────────────────────────────────────────────── */
+#ja-bubble {
+  all: initial;
+  position: absolute;
+  z-index: 2147483647;
+  visibility: hidden;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.ja-bubble-label {
+  all: initial;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #fff;
+  border: 1.5px solid #4F46E5;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(79,70,229,0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4F46E5;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#ja-bubble[data-regen="1"] .ja-bubble-label {
+  border-color: #059669;
+  color: #059669;
+  box-shadow: 0 2px 10px rgba(5,150,105,0.2);
+}
+
+#ja-bubble:hover .ja-bubble-label {
+  box-shadow: 0 4px 16px rgba(79,70,229,0.3);
+}
+
+/* ── Panel ───────────────────────────────────────────────── */
+#ja-panel {
+  all: initial;
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  z-index: 2147483646;
+  width: 340px;
+  max-height: 88vh;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #111827;
+  overflow: hidden;
+}
+
+#ja-panel.ja-hidden {
+  display: none;
+}
+
+/* Header */
+#ja-ph {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #E5E7EB;
+  background: #FAFAFA;
+  flex-shrink: 0;
+}
+
+#ja-ptitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  font-family: inherit;
+}
+
+#ja-pmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #4F46E5;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+}
+
+/* Close button — explicitly styled with high specificity */
+#ja-panel #ja-close-btn {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  color: #6B7280;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+
+#ja-panel #ja-close-btn:hover {
+  background: #F3F4F6;
+  color: #111827;
+}
+
+/* Body */
+#ja-pb {
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.ja-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ja-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #374151;
+  font-family: inherit;
+}
+
+.ja-label small {
+  font-weight: 400;
+  color: #9CA3AF;
+  font-size: 10.5px;
+}
+
+/* Textareas inside panel */
+#ja-panel textarea {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  background: #fff;
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+  min-height: 64px;
+  transition: border-color 0.15s;
+}
+
+#ja-panel textarea:focus {
+  border-color: #4F46E5;
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+
+#ja-panel textarea::placeholder {
+  color: #9CA3AF;
+}
+
+/* Details/summary for JD */
+.ja-details {
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ja-details summary {
+  padding: 8px 11px;
+  background: #F9FAFB;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+
+.ja-details summary::-webkit-details-marker { display: none; }
+.ja-details summary::before {
+  content: '›';
+  font-size: 14px;
+  color: #6B7280;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.ja-details[open] summary::before { transform: rotate(90deg); }
+.ja-details summary:hover { background: #F3F4F6; }
+
+.ja-details textarea {
+  border: none;
+  border-top: 1px solid #E5E7EB;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* Generate button */
+#ja-gen-btn {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  background: #4F46E5;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#ja-gen-btn:hover   { background: #4338CA; }
+#ja-gen-btn:disabled { background: #A5B4FC; cursor: not-allowed; }
+
+/* Status */
+#ja-status {
+  font-family: inherit;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.ja-status-loading {
+  background: #EEF2FF;
+  color: #4F46E5;
+}
+
+.ja-status-err {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #DC2626;
+}
+
+/* Result box */
+#ja-result-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#ja-answer-text {
+  padding: 10px 12px;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #111827;
+  min-height: 80px;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  outline: none;
+  cursor: text;
+  font-family: inherit;
+}
+#ja-answer-text:focus { border-color: #4F46E5; }
+
+#ja-result-actions {
+  display: flex;
+  gap: 6px;
+}
+
+#ja-insert-btn, #ja-regen-btn, #ja-copy-btn {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+#ja-insert-btn {
+  flex: 1;
+  background: #4F46E5;
+  color: #fff;
+  border: none;
+  font-weight: 500;
+}
+#ja-insert-btn:hover { background: #4338CA; }
+
+#ja-regen-btn, #ja-copy-btn {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #E5E7EB;
+}
+#ja-regen-btn:hover, #ja-copy-btn:hover {
+  border-color: #4F46E5;
+  color: #4F46E5;
+}
+
+/* Utility */
+.ja-hidden { display: none; }
