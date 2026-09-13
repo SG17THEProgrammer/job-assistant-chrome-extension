@@ -6,7 +6,7 @@
 /* ── Bubble ──────────────────────────────────────────────── */
 #ja-bubble {
   all: initial;
-  position: absolute;
+  position: fixed;
   z-index: 2147483647;
   visibility: hidden;
   opacity: 0;
@@ -328,4 +328,53 @@
 }
 
 /* Utility */
-.ja-hidden { display: none; }
+.ja-hidden { display: none !important; }
+#ja-panel .ja-hidden { display: none !important; }
+#ja-bubble.ja-hidden { display: none !important; }
+
+/* ── Custom instruction field ─────────────────────────── */
+.ja-opt {
+  font-size: 10px;
+  color: #9CA3AF;
+  font-weight: 400;
+  font-family: inherit;
+}
+
+/* ── JD collapsible (replaces <details>) ─────────────── */
+.ja-collapsible {
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ja-collapse-btn {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 11px;
+  background: #F9FAFB;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  transition: background 0.15s;
+}
+.ja-collapse-btn:hover { background: #F3F4F6; }
+
+.ja-arrow {
+  font-size: 16px;
+  color: #6B7280;
+  font-family: inherit;
+  transition: transform 0.2s;
+}
+
+.ja-collapse-body { padding-top: 0; }
+.ja-collapse-body textarea {
+  border: none;
+  border-top: 1px solid #E5E7EB;
+  border-radius: 0;
+}

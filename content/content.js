@@ -22,8 +22,9 @@
   //  Everything else gets a chance to pass the signal check.
   // ══════════════════════════════════════════════════════════
   const BLOCKED_DOMAINS = [
-    // Search engines
-    'google.com', 'bing.com', 'yahoo.com', 'duckduckgo.com', 'baidu.com',
+    // Search engines — be specific, don't block all of google.com
+    // (docs.google.com/forms must be allowed)
+    'www.google.com', 'google.com', 'bing.com', 'yahoo.com', 'duckduckgo.com', 'baidu.com',
     // Social / chat (NOT LinkedIn — that's a job site)
     'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
     'whatsapp.com', 'telegram.org', 'discord.com', 'slack.com',
@@ -58,7 +59,11 @@
   const host = location.hostname.replace(/^www\./, '').toLowerCase();
 
   // Block if domain matches blocklist
-  if (BLOCKED_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return;
+  // Special case: docs.google.com/forms must be allowed (job application forms)
+  const isGoogleForms = host === 'docs.google.com' && location.pathname.includes('/forms/');
+  if (!isGoogleForms && BLOCKED_DOMAINS.some(d => host === d || host.endsWith('.' + d))) {
+    return;
+  }
 
   // Special case: docs.google.com — only allow /forms/ URLs
   if (host === 'docs.google.com' && !location.pathname.includes('/forms/')) return;
@@ -96,45 +101,43 @@
   }
 
   function delayedBoot(skipScoring) {
+    console.log('[JobAssist] booting. host='+host+' skipScoring='+skipScoring);
     if (skipScoring) {
+      console.log('[JobAssist] known ATS — activating immediately');
       activate();
       return;
     }
 
-    // Try immediately, then retry as DOM loads (handles SPAs)
     let activated = false;
     function tryActivate() {
       if (activated) return;
-      if (pageHasJobSignals()) {
+      const score = getJobScore();
+      console.log('[JobAssist] scoring attempt, score='+score, 'url='+location.href);
+      if (score >= 2) {
         activated = true;
+        console.log('[JobAssist] ACTIVATING — score='+score);
         activate();
       }
     }
 
-    // Attempt 1: right now (works if DOM already has signals)
     tryActivate();
-
-    // Attempt 2: after 500ms (page partially rendered)
     setTimeout(tryActivate, 500);
-
-    // Attempt 3: after 1500ms (SPA fully rendered)
     setTimeout(tryActivate, 1500);
+    setTimeout(tryActivate, 3000);
 
-    // Attempt 4: watch for DOM changes that add job signals
     const observer = new MutationObserver(() => {
       tryActivate();
       if (activated) observer.disconnect();
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    // Stop watching after 5s regardless
-    setTimeout(() => observer.disconnect(), 5000);
+    setTimeout(() => observer.disconnect(), 8000);
   }
 
   // ══════════════════════════════════════════════════════════
   //  JOB SIGNAL SCORING
   //  Returns true if this page looks like a job/apply page
   // ══════════════════════════════════════════════════════════
-  function pageHasJobSignals() {
+  function getJobScore() {
     const path  = location.pathname.toLowerCase();
     const href  = location.href.toLowerCase();
     const title = document.title.toLowerCase();
@@ -216,14 +219,15 @@
       if (JOB_WORDS.some(w => allText.includes(w))) score += 2;
     }
 
-    // Activate if score >= 2 (needs at least one strong OR two medium signals)
-    return score >= 2;
+    console.log('[JobAssist] score breakdown — path:'+!!(STRONG_PATH.some(p=>path.includes(p)))+' param:'+!!(STRONG_PARAMS.some(p=>href.includes(p)))+' domain:'+!!(MEDIUM_DOMAIN.some(p=>host.startsWith(p)))+' title:'+!!(TITLE_KEYWORDS.some(k=>title.includes(k)))+' total:'+score);
+    return score;
   }
 
   // ══════════════════════════════════════════════════════════
   //  ACTIVATE — mount UI and listeners
   // ══════════════════════════════════════════════════════════
   function activate() {
+    console.log('[JobAssist] activate() called on', location.href);
     chrome.storage.local.get(['autoJd'], d => {
       buildBubble();
       buildPanel();
@@ -255,6 +259,7 @@
     async function tryFill() {
       attempts++;
       const profile = await loadProfile();
+      console.log('[JobAssist] tryFill attempt', attempts, 'profile keys filled:', Object.values(profile).filter(Boolean).length);
 
       // Find ALL input/textarea/select fields on the page
       const fields = document.querySelectorAll(
@@ -264,10 +269,15 @@
 
       let filled = 0;
       for (const el of fields) {
-        // Skip if already has a value or is hidden
-        if (el.value && el.value.trim()) continue;
+        // Skip if already has a non-empty value
+        if (el.value && el.value.trim().length > 0) continue;
+        // Skip hidden fields
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
         const rect = el.getBoundingClientRect();
-        if (rect.width === 0 && rect.height === 0) continue; // hidden
+        if (rect.width === 0 && rect.height === 0) continue;
+        // Skip disabled/readonly
+        if (el.disabled || el.readOnly) continue;
 
         const combined = [
           el.name, el.id, el.placeholder,
@@ -275,14 +285,18 @@
           el.getAttribute('autocomplete'),
           el.getAttribute('data-automation-id'),
           el.getAttribute('data-field'),
+          el.getAttribute('jsname'),
           getLabel(el),
         ].filter(Boolean).join(' ').toLowerCase();
 
         const val = getFieldMapping(combined, profile);
         if (val) {
+          console.log('[JobAssist] filling field:', combined.slice(0,60), '→', val.slice(0,30));
           setValue(el, val);
           flashField(el);
           filled++;
+          // Small delay between fields to avoid overwhelming React state
+          await new Promise(r => setTimeout(r, 80));
         }
       }
 
@@ -310,10 +324,11 @@
   function onFocusOut() {
     setTimeout(() => {
       if (panelOpen) return;
+      if (bubbleMouseDown) return; // user is clicking the bubble — don't hide
       const f = document.activeElement;
       if (bubble?.contains(f) || panel?.contains(f)) return;
       hideBubble();
-    }, 200);
+    }, 250);
   }
 
   function onMouseUp() {
@@ -325,17 +340,22 @@
     if (!el?.tagName) return false;
     const tag = el.tagName.toUpperCase();
 
-    // Google Forms
+    // Google Forms — 2024 DOM structure
     if (host === 'docs.google.com') {
+      // Long answer = textarea → always show AI bubble
       if (tag === 'TEXTAREA') return true;
-      if (tag === 'INPUT' && (
-        el.classList.contains('quantumWizTextinputPaperinputInput') ||
-        el.getAttribute('jsname') === 'YPqjbf'
-      )) {
-        const label = getLabel(el).toLowerCase();
-        const SKIP = ['name', 'email', 'phone', 'mobile', 'roll',
-          'date', 'age', 'address', 'pincode', 'number'];
-        return !SKIP.some(w => label.includes(w));
+      // Short answer = input[type=text]
+      if (tag === 'INPUT' && el.type === 'text') {
+        // Get the actual question text (not "Your answer")
+        const question = getLabel(el).toLowerCase();
+        // Skip fields that are clearly profile/personal data (autofill handles those)
+        const SKIP = ['name', 'email', 'phone', 'mobile', 'roll no',
+          'registration', 'date of birth', 'age', 'pincode', 'address'];
+        if (SKIP.some(w => question.includes(w))) return false;
+        // If we got a real question, show bubble
+        if (question.length > 3) return true;
+        // If label is empty or generic, still show bubble (user can type question)
+        return true;
       }
       return false;
     }
@@ -372,15 +392,66 @@
   }
 
   function getLabel(el) {
-    // Google Forms question title
+    // ── Google Forms label extraction ──
+    // Structure (2024):
+    //   div[data-params]  ← question container
+    //     div[role="heading"]  ← question TEXT (what we want)
+    //     div  ← input wrapper
+    //       input / textarea  ← the actual field (aria-label="Your answer" — NOT useful)
+    //
+    // Strategy: walk UP from input until we find the question container,
+    // then grab the first [role="heading"] or title span inside it.
     if (host === 'docs.google.com') {
+      // Walk up DOM — Google Forms question container has data-params attribute
       let cur = el.parentElement;
-      for (let i = 0; i < 10 && cur; i++) {
-        const q = cur.querySelector('.freebirdFormviewerViewItemsItemItemTitle');
-        if (q) return q.innerText.trim();
+      for (let i = 0; i < 15 && cur; i++) {
+        // Question container identification:
+        // 1. Has data-params (most reliable — unique to each question block)
+        // 2. Or has jsmodel attribute (also question-level)
+        const isQuestionContainer =
+          cur.hasAttribute('data-params') ||
+          cur.hasAttribute('jsmodel') ||
+          cur.classList.contains('freebirdFormviewerViewItemsItemItem') ||
+          cur.getAttribute('role') === 'listitem';
+
+        if (isQuestionContainer) {
+          // Try heading role first (most reliable)
+          const heading = cur.querySelector('[role="heading"]');
+          if (heading) {
+            const text = heading.innerText.trim();
+            // Filter out generic placeholders
+            if (text && text !== 'Your answer' && text !== 'Short answer text') {
+              return text;
+            }
+          }
+          // Legacy class
+          const legacyTitle = cur.querySelector(
+            '.freebirdFormviewerViewItemsItemItemTitle,' +
+            '.freebirdFormviewerComponentsQuestionBaseTitle'
+          );
+          if (legacyTitle) {
+            const text = legacyTitle.innerText.trim();
+            if (text) return text;
+          }
+          // Any span/div that looks like a question title (first text block, not input)
+          const spans = cur.querySelectorAll('span, div');
+          for (const span of spans) {
+            if (span.contains(el)) continue; // skip the input's own container
+            const text = span.innerText?.trim();
+            if (text && text.length > 3 && text.length < 300 &&
+                text !== 'Your answer' && text !== 'Short answer text' &&
+                !span.querySelector('input, textarea')) {
+              return text;
+            }
+          }
+          break; // found container but no title — stop walking
+        }
         cur = cur.parentElement;
       }
-      return el.getAttribute('aria-label') || el.placeholder || '';
+      // Last resort: check aria-label but skip generic values
+      const aria = el.getAttribute('aria-label');
+      if (aria && aria !== 'Your answer' && aria !== 'Short answer text') return aria;
+      return '';
     }
     // Standard
     try {
@@ -476,15 +547,30 @@
   // ══════════════════════════════════════════════════════════
   //  BUBBLE
   // ══════════════════════════════════════════════════════════
+  let bubbleMouseDown = false; // track mousedown to prevent focusout race
+
   function buildBubble() {
     bubble = document.createElement('div');
     bubble.id = 'ja-bubble';
     bubble.innerHTML = `<span class="ja-bubble-label">✦ Answer with AI</span>`;
+
+    bubble.addEventListener('mouseenter', () => { bubbleMouseDown = false; });
+
     bubble.addEventListener('mousedown', e => {
       e.preventDefault();
       e.stopPropagation();
-      openPanel();
+      bubbleMouseDown = true; // tell focusout handler to not hide
     });
+
+    bubble.addEventListener('mouseup', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (bubbleMouseDown) {
+        bubbleMouseDown = false;
+        openPanel();
+      }
+    });
+
     document.body.appendChild(bubble);
     hideBubble();
   }
@@ -507,11 +593,14 @@
 
   function positionBubble(field) {
     const rect = field.getBoundingClientRect();
-    const sY = window.scrollY, sX = window.scrollX;
-    let top  = rect.top + sY - 38;
-    let left = rect.right + sX - 185;
-    if (left < 4)  left = 4;
-    if (top  < 4)  top  = rect.bottom + sY + 6;
+    // Use fixed positioning so bubble stays attached to field
+    // even inside scrollable containers (Google Forms, Workday etc.)
+    bubble.style.position = 'fixed';
+    let top  = rect.top - 36;
+    let left = rect.right - 185;
+    if (left < 4)   left = 4;
+    if (left + 185 > window.innerWidth) left = window.innerWidth - 190;
+    if (top  < 4)   top  = rect.bottom + 4; // flip below if no space above
     bubble.style.top  = top  + 'px';
     bubble.style.left = left + 'px';
   }
@@ -533,11 +622,24 @@
           <textarea id="ja-question" rows="3"
             placeholder="Paste the question here, or type what this field asks…"></textarea>
         </div>
-        <details class="ja-details">
-          <summary>Job description (for better answers)</summary>
-          <textarea id="ja-jd" rows="4"
-            placeholder="Paste the job description here…"></textarea>
-        </details>
+
+        <div class="ja-field-group">
+          <label class="ja-label">Custom instruction <span class="ja-opt">optional</span></label>
+          <textarea id="ja-custom-prompt" rows="2"
+            placeholder='e.g. "Focus on my n8n project" or "Keep it under 3 sentences" or "Mention leadership"'></textarea>
+        </div>
+
+        <div class="ja-collapsible">
+          <button class="ja-collapse-btn" id="ja-jd-toggle" type="button">
+            <span>Job description context</span>
+            <span class="ja-arrow">›</span>
+          </button>
+          <div class="ja-collapse-body ja-hidden" id="ja-jd-body">
+            <textarea id="ja-jd" rows="4"
+              placeholder="Paste the job description here for more tailored answers…"></textarea>
+          </div>
+        </div>
+
         <button id="ja-gen-btn" type="button">✦ Generate &amp; fill</button>
         <div id="ja-status" class="ja-hidden"></div>
         <div id="ja-result-box" class="ja-hidden">
@@ -557,10 +659,20 @@
     panel.querySelector('#ja-close-btn').onclick = e => {
       e.preventDefault(); e.stopPropagation(); closePanel();
     };
-    panel.querySelector('#ja-gen-btn').onclick   = () => runGenerate();
-    panel.querySelector('#ja-regen-btn').onclick = () => runGenerate();
+    panel.querySelector('#ja-gen-btn').onclick    = () => runGenerate();
+    panel.querySelector('#ja-regen-btn').onclick  = () => runGenerate();
     panel.querySelector('#ja-insert-btn').onclick = () => insertAnswer();
     panel.querySelector('#ja-copy-btn').onclick   = () => copyAnswer();
+
+    // JD collapsible toggle — pure div, no <details> so content never resets
+    panel.querySelector('#ja-jd-toggle').onclick = () => {
+      const body  = panel.querySelector('#ja-jd-body');
+      const arrow = panel.querySelector('.ja-arrow');
+      const open  = !body.classList.contains('ja-hidden');
+      body.classList.toggle('ja-hidden', open);
+      arrow.textContent = open ? '›' : '‹';
+    };
+
     panel.addEventListener('mousedown', e => e.stopPropagation());
     panel.addEventListener('click',     e => e.stopPropagation());
   }
@@ -571,9 +683,14 @@
     panel.classList.remove('ja-hidden');
     panelOpen = true;
     const qEl = panel.querySelector('#ja-question');
-    if (activeField && !qEl.value.trim()) {
+    if (activeField) {
       const label = getLabel(activeField);
-      if (label && label.length > 3 && label.length < 500) qEl.value = label;
+      // Always update question from field label — overwrite "Your answer" etc.
+      if (label && label.length > 3 && label.length < 500) {
+        qEl.value = label;
+      }
+      // If still empty, clear so user sees the placeholder
+      if (!label) qEl.value = '';
     }
     const jdEl = panel.querySelector('#ja-jd');
     if (jobDesc && !jdEl.value.trim()) jdEl.value = jobDesc.slice(0, 3000);
@@ -602,12 +719,14 @@
     panel.querySelector('#ja-gen-btn').disabled = true;
     setStatus('Writing your answer…', 'loading');
 
+    const customPrompt = panel.querySelector('#ja-custom-prompt').value.trim();
     const res = await chrome.runtime.sendMessage({
       type: 'GENERATE_ANSWER',
       question,
       jobDescription: panel.querySelector('#ja-jd').value.trim() || jobDesc,
       fieldHint: activeField ? getLabel(activeField) : '',
       companyName,
+      customPrompt,
     });
 
     generating = false;
@@ -650,6 +769,16 @@
   // ══════════════════════════════════════════════════════════
   function setValue(el, text) {
     if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+      // Google Forms uses React internally — requires simulated user interaction
+      // Simply setting .value does nothing; must simulate focus + keystrokes
+      const isGoogleForm = location.hostname === 'docs.google.com';
+
+      if (isGoogleForm) {
+        setValueGoogleForms(el, text);
+        return;
+      }
+
+      // Standard React-compatible setter for all other sites
       const proto = Object.getOwnPropertyDescriptor(
         el.tagName === 'TEXTAREA'
           ? HTMLTextAreaElement.prototype
@@ -665,6 +794,36 @@
       el.innerText = text;
       el.dispatchEvent(new InputEvent('input', { bubbles: true }));
     }
+  }
+
+  // Google Forms requires simulated keyboard events to register input
+  // It ignores programmatic value changes — must fake real typing
+  function setValueGoogleForms(el, text) {
+    el.focus();
+    el.click();
+
+    // Clear existing value first
+    el.value = '';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Set value via native setter (bypasses React read-only)
+    const proto = Object.getOwnPropertyDescriptor(
+      el.tagName === 'TEXTAREA'
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype,
+      'value'
+    );
+    if (proto?.set) proto.set.call(el, text);
+    else el.value = text;
+
+    // Fire the full event sequence Google Forms listens to
+    el.dispatchEvent(new Event('focus',  { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown',  { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true }));
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    el.dispatchEvent(new KeyboardEvent('keyup',    { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur',   { bubbles: true }));
   }
 
   // ══════════════════════════════════════════════════════════

@@ -66,7 +66,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     GET_API_KEY:      () => getApiKey(),
   };
   const handler = handlers[msg.type];
-  if (handler) { handler().then(sendResponse); return true; }
+  if (!handler) return false; // no async response
+
+  // Keep service worker alive during the async call.
+  // MV3 workers sleep after ~5s idle — this ping prevents that.
+  const keepAlive = setInterval(() => {
+    chrome.runtime.getPlatformInfo(() => {}); // lightweight no-op ping
+  }, 4000);
+
+  handler()
+    .then(result => sendResponse(result ?? { ok: true }))
+    .catch(err  => sendResponse({ error: err?.message || 'Unknown error' }))
+    .finally(()  => clearInterval(keepAlive));
+
+  return true; // keep message channel open
 });
 
 async function saveApiKey(plaintext) {
@@ -85,7 +98,7 @@ async function getApiKey() {
 // ══════════════════════════════════════════════════════════
 //  GENERATE ANSWER — strict, no hallucination
 // ══════════════════════════════════════════════════════════
-async function handleGenerateAnswer({ question, jobDescription, fieldHint, companyName }) {
+async function handleGenerateAnswer({ question, jobDescription, fieldHint, companyName, customPrompt }) {
   const s = await load([
     'resumeText', 'resumeBase64',
     'firstName', 'lastName', 'email', 'phone',
@@ -106,9 +119,9 @@ async function handleGenerateAnswer({ question, jobDescription, fieldHint, compa
   s.apiKey = apiKey; // inject decrypted key
 
   const styleGuide = {
-    concise:  'Write 2–3 sentences only. Be direct and specific.',
-    balanced: 'Write one focused paragraph (4–6 sentences) with one real, specific example from the resume.',
-    detailed: 'Write 2–3 paragraphs: briefly set context, give a specific example with a measurable outcome, then connect to the role.',
+    concise:  'Write 2-3 sentences only. Be direct and specific.',
+    balanced: 'Write one focused paragraph (4-6 sentences) with one real, specific example from the resume.',
+    detailed: 'Write 2-3 paragraphs: briefly set context, give a specific example with a measurable outcome, then connect to the role.',
   }[s.answerStyle || 'balanced'];
 
   const companyNote = (companyName && s.companies?.[companyName])
@@ -126,6 +139,8 @@ CRITICAL RULES — follow these absolutely:
 4. Do NOT mention any company (e.g. Amazon, Google, Microsoft) unless it literally appears in the resume text.
 5. Do NOT mention any technology, skill, or project unless it literally appears in the resume text or the user's extra context.
 6. If the resume is empty or missing, say: "Please upload your resume in the JobAssist extension popup so I can write an accurate answer."
+7. Make the answers human-like rather than a robotic answer.
+8. Do not repeat the answers again and again. If you talked about some tech in one answer do not include that again and again.  
 
 STYLE: ${styleGuide}
 TONE: ${s.tone || 'professional'}
@@ -147,7 +162,9 @@ ${companyNote}`;
   const userText = [
     jobDescription ? `JOB DESCRIPTION (for context):\n${jobDescription.slice(0, 2500)}\n` : '',
     fieldHint      ? `Form field label: "${fieldHint}"\n` : '',
-    `APPLICATION QUESTION:\n${question}\n\nWrite my answer now:`,
+    `APPLICATION QUESTION:\n${question}`,
+    customPrompt   ? `\nSPECIFIC INSTRUCTION FOR THIS ANSWER:\n${customPrompt}\n(Follow this instruction above everything else for this answer)` : '',
+    `\nWrite my answer now:`,
   ].filter(Boolean).join('\n');
 
   // If resume is a PDF (base64), include it as inline_data in the Gemini request
