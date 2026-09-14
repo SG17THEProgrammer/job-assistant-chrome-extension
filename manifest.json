@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "JobAssist AI",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Auto-fill job applications, tailor your resume, and beat ATS — powered by Gemini AI.",
   "permissions": [
     "storage",
@@ -42,9 +42,5 @@
       "resources": ["lib/*"],
       "matches": ["<all_urls>"]
     }
-  ],
-  "oauth2": {
-    "client_id": "YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com",
-    "scopes": ["openid", "email", "profile"]
-  }
+  ]
 }

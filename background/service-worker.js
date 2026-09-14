@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-//  JobAssist AI — Background Service Worker v5
+//  JobAssist AI — Background Service Worker v6
 // ═══════════════════════════════════════════════════════════
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
 
 // ══════════════════════════════════════════════════════════
 //  AES-GCM ENCRYPTION
@@ -36,18 +36,23 @@ async function decryptApiKey(ct) {
 // ══════════════════════════════════════════════════════════
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handlers = {
-    GENERATE_ANSWER:  () => handleGenerateAnswer(msg),
-    TAILOR_RESUME:    () => handleTailorResume(msg),
-    EDIT_RESUME:      () => handleEditResume(msg),
-    GENERATE_PDF:     () => handleGeneratePdf(),
-    GET_MY_CONTEXT:   () => handleGetMyContext(),
-    GET_PROMPT_TEXT:  () => handleGetPromptText(msg),
-    TEST_API:         () => testApi(msg.apiKey),
-    SAVE_API_KEY:     () => saveApiKey(msg.apiKey),
-    GET_API_KEY:      () => getApiKey(),
-    FETCH_URL:        () => handleFetchUrl(msg.url),
-    LOG_APPLICATION:  () => handleLogApplication(msg),
-    RUN_ATS:          () => handleRunAts(msg),
+    GENERATE_ANSWER:      () => handleGenerateAnswer(msg),
+    TAILOR_RESUME:        () => handleTailorResume(msg),
+    EDIT_RESUME:          () => handleEditResume(msg),
+    GENERATE_PDF:         () => handleGeneratePdf(),
+    GET_MY_CONTEXT:       () => handleGetMyContext(),
+    GET_PROMPT_TEXT:      () => handleGetPromptText(msg),
+    TEST_API:             () => testApi(msg.apiKey),
+    SAVE_API_KEY:         () => saveApiKey(msg.apiKey),
+    GET_API_KEY:          () => getApiKey(),
+    FETCH_URL:            () => handleFetchUrl(msg.url),
+    LOG_APPLICATION:      () => handleLogApplication(msg),
+    RUN_ATS:              () => handleRunAts(msg),
+    // NEW: GitHub refresh + README fetch
+    REFRESH_GITHUB:       () => handleRefreshGitHub(msg.githubUrl),
+    FETCH_GITHUB_README:  () => handleFetchGithubReadme(msg.owner, msg.repo),
+    // NEW: Extract text from PDF stored in base64
+    EXTRACT_PDF_TEXT:     () => handleExtractPdfText(),
   };
   const handler = handlers[msg.type];
   if (!handler) return false;
@@ -60,6 +65,135 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ══════════════════════════════════════════════════════════
+//  FIX 1: EXTRACT PDF TEXT using Gemini's vision
+//  Called after PDF upload to convert base64 PDF → text
+//  and store as resumeText so the system prompt works.
+// ══════════════════════════════════════════════════════════
+async function handleExtractPdfText() {
+  const s = await load(['resumeBase64', 'apiKeyEnc', 'apiKey']);
+  if (!s.resumeBase64) return { error: 'No PDF uploaded.' };
+  const apiKey = await getApiKeyValue(s);
+  if (!apiKey) return { error: 'No API key set. Add it in the API tab first, then re-upload your resume.' };
+
+  const b64 = s.resumeBase64.includes(',') ? s.resumeBase64.split(',')[1] : s.resumeBase64;
+
+  try {
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: 'You are a resume parser. Extract ALL text from this resume PDF exactly as written. Preserve section headings, bullet points, dates, company names, and all content. Output plain text only — no commentary, no markdown formatting.' }] },
+        contents: [{
+          role: 'user',
+          parts: [
+            { inline_data: { mime_type: 'application/pdf', data: b64 } },
+            { text: 'Extract all text from this resume. Output every word, date, company, skill, and description exactly as written.' }
+          ]
+        }],
+        generationConfig: { maxOutputTokens: 4000, temperature: 0 },
+      }),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      return { error: e.error?.message || `Gemini error ${res.status}` };
+    }
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text || text.length < 50) return { error: 'Could not extract text from PDF. Try uploading as .txt instead.' };
+
+    // Store the extracted text so system prompt has it
+    await new Promise(r => chrome.storage.local.set({ resumeText: text }, r));
+    return { ok: true, text, length: text.length };
+  } catch (e) {
+    return { error: `Network error: ${e.message}` };
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  FIX 2a: REFRESH GITHUB DATA (dynamic, not static)
+// ══════════════════════════════════════════════════════════
+async function handleRefreshGitHub(githubUrl) {
+  if (!githubUrl) {
+    const s = await load(['githubUrl']);
+    githubUrl = s.githubUrl;
+  }
+  if (!githubUrl) return { error: 'No GitHub URL saved.' };
+
+  let handle;
+  try {
+    const u = new URL(githubUrl);
+    handle = u.pathname.split('/').filter(Boolean)[0];
+  } catch { return { error: 'Invalid GitHub URL.' }; }
+
+  try {
+    const [uRes, rRes] = await Promise.all([
+      fetch(`https://api.github.com/users/${handle}`, { headers: { 'Accept': 'application/vnd.github.v3+json' } }),
+      fetch(`https://api.github.com/users/${handle}/repos?sort=updated&per_page=20`, { headers: { 'Accept': 'application/vnd.github.v3+json' } }),
+    ]);
+    if (!uRes.ok) return { error: `GitHub user not found (${uRes.status})` };
+    const user  = await uRes.json();
+    const repos = await rRes.json();
+    const githubData = {
+      name:        user.name || handle,
+      bio:         user.bio  || '',
+      followers:   user.followers,
+      following:   user.following,
+      publicRepos: user.public_repos,
+      avatarUrl:   user.avatar_url,
+      htmlUrl:     user.html_url,
+      fetchedAt:   Date.now(),
+      repos: repos.map(r => ({
+        name:        r.name,
+        description: r.description || '',
+        stars:       r.stargazers_count,
+        forks:       r.forks_count,
+        language:    r.language,
+        url:         r.html_url,
+        topics:      r.topics || [],
+        updatedAt:   r.updated_at,
+      })),
+    };
+    await new Promise(r => chrome.storage.local.set({ githubData }, r));
+    return { ok: true, githubData };
+  } catch (e) {
+    return { error: `GitHub fetch failed: ${e.message}` };
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  FIX 2b: FETCH GITHUB README for a specific repo
+//  Used when answering questions about a specific project
+// ══════════════════════════════════════════════════════════
+async function handleFetchGithubReadme(owner, repo) {
+  if (!owner || !repo) return { error: 'owner and repo required.' };
+  try {
+    // Try main branch first, then master
+    for (const branch of ['main', 'master']) {
+      const res = await fetch(
+        `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/README.md`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (res.ok) {
+        const text = await res.text();
+        return { ok: true, readme: text.slice(0, 4000), repo, branch };
+      }
+    }
+    // Try GitHub API as fallback
+    const apiRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/readme`,
+      { headers: { 'Accept': 'application/vnd.github.v3.raw' } }
+    );
+    if (apiRes.ok) {
+      const text = await apiRes.text();
+      return { ok: true, readme: text.slice(0, 4000), repo, branch: 'api' };
+    }
+    return { error: `No README found for ${owner}/${repo}` };
+  } catch (e) {
+    return { error: `Failed to fetch README: ${e.message}` };
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 //  FETCH EXTERNAL URL (for JD link fetching)
 // ══════════════════════════════════════════════════════════
 async function handleFetchUrl(url) {
@@ -70,7 +204,6 @@ async function handleFetchUrl(url) {
     });
     if (!res.ok) return { error: `Could not access the link (HTTP ${res.status}). Please paste the job description directly.` };
     const html = await res.text();
-    // Strip HTML tags, collapse whitespace, extract meaningful text
     const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -93,7 +226,7 @@ async function handleLogApplication({ company, role, url, jd, date }) {
   const s = await load(['applications']);
   const apps = s.applications || [];
   const entry = {
-    id: Date.now(),
+    id:      Date.now(),
     company: company || 'Unknown',
     role:    role    || 'Unknown',
     url:     url     || '',
@@ -101,7 +234,7 @@ async function handleLogApplication({ company, role, url, jd, date }) {
     date:    date || new Date().toISOString(),
     status:  'Applied',
   };
-  apps.unshift(entry); // newest first
+  apps.unshift(entry);
   await new Promise(r => chrome.storage.local.set({ applications: apps.slice(0, 200) }, r));
   return { ok: true, entry };
 }
@@ -129,8 +262,14 @@ Return ONLY a JSON object, no markdown, no backticks:
 score = percentage (matchedCount/totalKeywords*100, rounded).
 Extract only meaningful keywords (skills, tools, qualifications) — not generic words.`;
 
-  const user = `RESUME:\n${(s.resumeText || '').slice(0, 5000)}\n\nJOB DESCRIPTION:\n${jd.slice(0, 3000)}`;
-  const result = await gemini(apiKey, system, user, 1000);
+  const user = `RESUME:\n${(s.resumeText || '[PDF uploaded — see attached]').slice(0, 5000)}\n\nJOB DESCRIPTION:\n${jd.slice(0, 6000)}`;
+
+  let result;
+  if (s.resumeBase64 && !s.resumeText) {
+    result = await geminiWithPdf(apiKey, system, user, s.resumeBase64, 1000);
+  } else {
+    result = await gemini(apiKey, system, user, 1000);
+  }
   if (result.error) return result;
   try {
     return JSON.parse(result.answer.replace(/```json|```/g, '').trim());
@@ -165,8 +304,10 @@ async function handleGetPromptText({ question, jobDescription }) {
 
 // ══════════════════════════════════════════════════════════
 //  GENERATE ANSWER
+//  FIX: If resumeText is empty but resumeBase64 exists,
+//  always use PDF path. Smart README injection for GitHub.
 // ══════════════════════════════════════════════════════════
-async function handleGenerateAnswer({ question, jobDescription, fieldHint, companyName, customPrompt }) {
+async function handleGenerateAnswer({ question, jobDescription, fieldHint, companyName, customPrompt, readmeContext }) {
   const s = await load([
     'resumeText', 'resumeBase64',
     'firstName', 'lastName', 'email', 'phone',
@@ -186,16 +327,21 @@ async function handleGenerateAnswer({ question, jobDescription, fieldHint, compa
   const companyNote = companyName && s.companies?.[companyName]
     ? `\nCOMPANY NOTES:\n${s.companies[companyName]}` : '';
 
-  const systemText = buildSystemPrompt(s, s.answerStyle || 'balanced', s.tone || 'professional') + companyNote;
+  // FIX 2b: If readmeContext was passed in, inject it
+  const readmeNote = readmeContext
+    ? `\n\n=== PROJECT README (use this for detailed project questions) ===\n${readmeContext}` : '';
+
+  const systemText = buildSystemPrompt(s, s.answerStyle || 'balanced', s.tone || 'professional') + companyNote + readmeNote;
 
   const userText = [
-    jobDescription ? `JOB DESCRIPTION:\n${jobDescription.slice(0,2500)}\n` : '',
+    jobDescription ? `JOB DESCRIPTION:\n${jobDescription.slice(0,5000)}\n` : '',
     fieldHint      ? `Form field: "${fieldHint}"\n` : '',
     `QUESTION:\n${question}`,
     customPrompt   ? `\nSPECIFIC INSTRUCTION (highest priority):\n${customPrompt}` : '',
     `\nWrite my answer:`,
   ].filter(Boolean).join('\n');
 
+  // Use PDF path if we only have base64 (no extracted text)
   if (s.resumeBase64 && !s.resumeText) return geminiWithPdf(apiKey, systemText, userText, s.resumeBase64, 700);
   return gemini(apiKey, systemText, userText, 700);
 }
@@ -206,7 +352,7 @@ async function handleGenerateAnswer({ question, jobDescription, fieldHint, compa
 async function handleTailorResume({ jd, style }) {
   const s = await load(['resumeText', 'resumeBase64', 'apiKeyEnc', 'apiKey', 'fullName', 'githubData']);
   const apiKey = await getApiKeyValue(s);
-  if (!apiKey)                        return { error: 'No API key set.' };
+  if (!apiKey)                          return { error: 'No API key set.' };
   if (!s.resumeText && !s.resumeBase64) return { error: 'No resume uploaded.' };
 
   const system = `You are an expert resume writer and ATS specialist.
@@ -216,8 +362,14 @@ ${style ? `Style: ${style}` : ''}
 Return ONLY JSON, no markdown:
 {"tailoredResume":"...","matchedKeywords":["..."],"missingKeywords":["..."],"atsScore":75}`;
 
-  const user = `RESUME:\n${(s.resumeText||'').slice(0,6000)}\n\nJD:\n${jd.slice(0,3000)}`;
-  const r = await gemini(apiKey, system, user, 2500);
+  const user = `RESUME:\n${(s.resumeText||'[See attached PDF]').slice(0,6000)}\n\nJD:\n${jd.slice(0,6000)}`;
+
+  let r;
+  if (s.resumeBase64 && !s.resumeText) {
+    r = await geminiWithPdf(apiKey, system, user, s.resumeBase64, 2500);
+  } else {
+    r = await gemini(apiKey, system, user, 2500);
+  }
   if (r.error) return r;
   try { return JSON.parse(r.answer.replace(/```json|```/g,'').trim()); }
   catch { return { error: 'Could not parse response. Try again.' }; }
@@ -229,7 +381,7 @@ Return ONLY JSON, no markdown:
 async function handleEditResume({ editPrompt }) {
   const s = await load(['tailoredResumeText', 'apiKeyEnc', 'apiKey']);
   const apiKey = await getApiKeyValue(s);
-  if (!apiKey)             return { error: 'No API key set.' };
+  if (!apiKey)               return { error: 'No API key set.' };
   if (!s.tailoredResumeText) return { error: 'Generate a tailored resume first.' };
   const r = await gemini(apiKey,
     'Edit the resume per the instruction. Output ONLY the updated resume text.',
@@ -282,19 +434,30 @@ async function handleGetMyContext() {
   const hasResume  = !!(s.resumeText || s.resumeBase64);
   const hasKey     = !!(s.apiKeyEnc  || s.apiKey);
   const profileSummary = buildProfileSummary(s);
-
-  // Build the ACTUAL prompt text that goes to Gemini
   const actualSystemPrompt = hasResume
     ? buildSystemPrompt(s, s.answerStyle || 'balanced', s.tone || 'professional')
     : '(no prompt yet — upload resume first)';
 
+  // FIX: Show warning if PDF uploaded but text not extracted
+  const pdfWithoutText = !!(s.resumeBase64 && !s.resumeText);
+  let resumeDetail = '';
+  if (!hasResume) {
+    resumeDetail = 'No resume uploaded. Go to Profile tab.';
+  } else if (pdfWithoutText) {
+    resumeDetail = `File: ${s.resumeFileName || 'uploaded'}\nType: PDF\n⚠️ Text not yet extracted — AI is reading the PDF directly via Gemini vision.\nFor best results, click "Extract & Save Text" in the Profile tab.`;
+  } else {
+    resumeDetail = `File: ${s.resumeFileName || 'uploaded'}\nType: ${s.resumeBase64 ? 'PDF (text extracted ✓)' : 'Text'}\nLength: ${s.resumeText.length} characters\n\nPreview:\n${s.resumeText.slice(0,400)}…`;
+  }
+
+  const githubFetchedAge = s.githubData?.fetchedAt
+    ? Math.round((Date.now() - s.githubData.fetchedAt) / 60000) + ' min ago'
+    : null;
+
   const sections = [
     {
       title: 'Resume',
-      status: hasResume ? 'loaded' : 'missing',
-      detail: hasResume
-        ? `File: ${s.resumeFileName || 'uploaded'}\nType: ${s.resumeBase64 ? 'PDF' : 'Text'}\n${s.resumeText ? `Length: ${s.resumeText.length} characters\n\nPreview:\n${s.resumeText.slice(0,400)}…` : 'PDF stored as binary — sent directly to Gemini.'}`
-        : 'No resume uploaded. Go to Profile tab.',
+      status: hasResume ? (pdfWithoutText ? 'pdf-only' : 'loaded') : 'missing',
+      detail: resumeDetail,
     },
     {
       title: 'Personal info',
@@ -305,8 +468,8 @@ async function handleGetMyContext() {
       title: 'GitHub',
       status: s.githubData ? 'connected' : s.githubUrl ? 'url-saved' : 'missing',
       detail: s.githubData
-        ? buildGithubSummary(s.githubData)
-        : s.githubUrl ? `URL saved: ${s.githubUrl}\nClick verify in Profile tab to fetch repo data.`
+        ? buildGithubSummary(s.githubData) + (githubFetchedAge ? `\n\nLast refreshed: ${githubFetchedAge}` : '')
+        : s.githubUrl ? `URL saved: ${s.githubUrl}\nClick "Refresh GitHub" to fetch repo data.`
         : 'Not connected.',
     },
     {
@@ -370,6 +533,8 @@ async function getApiKeyValue(s) {
 
 // ══════════════════════════════════════════════════════════
 //  PROMPT BUILDERS
+//  FIX: resumeText being null/empty now shows a clear note
+//  instead of silently passing nothing
 // ══════════════════════════════════════════════════════════
 function buildSystemPrompt(s, style, tone) {
   const styleGuide = {
@@ -378,29 +543,34 @@ function buildSystemPrompt(s, style, tone) {
     detailed: 'Write 2–3 paragraphs: context, specific example with outcome, forward-looking statement.',
   }[style] || 'Write one focused paragraph.';
 
+  const resumeSection = s.resumeText
+    ? `\n=== RESUME (only source of truth for experience) ===\n${s.resumeText.slice(0, 8000)}`
+    : s.resumeBase64
+      ? '\n=== RESUME ===\n[Resume PDF is attached — read it carefully for all experience, skills, projects, and education data. Use ONLY what is in this PDF.]'
+      : '\n=== NO RESUME UPLOADED ===\nTell the user: "Please upload your resume in the JobAssist extension popup (Profile tab) so I can write an accurate answer."';
+
   return [
     `You are a job application assistant helping a user answer application questions.
 You write in FIRST PERSON on behalf of the user.
 `,
     `Style: ${styleGuide}`,
     `Tone: ${tone}.`,
-    `CRITICAL RULES: (follow these w/o fail)`,
-    `1. ONLY use information from the resume and profile below. Never invent company names, job titles, projects, technologies, dates, or achievements`,
-    `2. Do NOT mention any company (Amazon, Google etc.) unless it appears in the resume text.`,
-    `3. If the resume does not contain enough information to answer a specific part of the question, say what IS in the resume and acknowledge the limitation honestly (e.g. "While my resume focuses on X, I am eager to grow in Y").`,
-    `4. If the resume is empty or missing, say: "Please upload your resume in the JobAssist extension popup so I can write an accurate answer.`,
-    `5. Generate the answers human-like rather than a robotic answer.`,
-    `6. Do not repeat the answers again and again. If you talked about some tech in one answer do not include that again and again. `,
-    `7. Output ONLY the answer text — no preamble, no quotes, no meta-comments.`,
+    `CRITICAL RULES:`,
+    `1. ONLY use information from the resume and profile below. Never invent company names, job titles, projects, technologies, dates, or achievements.`,
+    `2. Do NOT mention any company (Amazon, Google etc.) unless it appears in the resume.`,
+    `3. If the resume does not contain enough information, say what IS there and acknowledge the gap honestly.`,
+    `4. Generate answers that sound human and natural, not robotic or repetitive.`,
+    `5. Do not repeat the same tech or projects across multiple answers in the same session.`,
+    `6. Output ONLY the answer text — no preamble, no quotes, no meta-comments.`,
     ``,
     `=== USER PROFILE ===`,
     buildProfileSummary(s),
-    s.resumeText ? `\n=== RESUME (only source of truth for experience) ===\n${s.resumeText.slice(0,8000)}` : '\n=== NO RESUME — tell user to upload resume ===',
-    s.githubData ? `\n=== GITHUB ===\n${buildGithubSummary(s.githubData)}` : '',
+    resumeSection,
+    s.githubData ? `\n=== GITHUB (${s.githubData.publicRepos} public repos, refreshed recently) ===\n${buildGithubSummary(s.githubData)}` : '',
     s.linkedinUrl ? `\nLinkedIn: ${s.linkedinUrl}` : '',
     s.extraContext ? `\n=== USER NOTES ===\n${s.extraContext}` : '',
     s.customInstruction ? `\n=== WRITING INSTRUCTIONS ===\n${s.customInstruction}` : '',
-  ].filter(s => s !== '').join('\n');
+  ].filter(x => x !== '').join('\n');
 }
 
 function buildProfileSummary(s) {
@@ -435,8 +605,10 @@ function buildProfileSummary(s) {
 
 function buildGithubSummary(d) {
   if (!d) return '';
-  const repos = (d.repos||[]).map(r => `  - ${r.name} (${r.language||'?'}, ★${r.stars}): ${r.description||''}`).join('\n');
-  return `Name: ${d.name}\nBio: ${d.bio}\nRepos: ${d.publicRepos}\n${repos}`;
+  const repos = (d.repos||[]).slice(0, 10).map(r =>
+    `  - ${r.name} (${r.language||'?'}, ★${r.stars}${r.topics?.length ? ', tags: '+r.topics.slice(0,3).join(', ') : ''}): ${r.description||''}`
+  ).join('\n');
+  return `Name: ${d.name}\nBio: ${d.bio}\nPublic repos: ${d.publicRepos}\nTop repos:\n${repos}`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -472,7 +644,10 @@ async function geminiWithPdf(apiKey, systemText, userText, base64DataUrl, maxTok
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemText }] },
-        contents: [{ role:'user', parts:[{ inline_data:{ mime_type:'application/pdf', data:b64 } }, { text: userText }] }],
+        contents: [{ role:'user', parts:[
+          { inline_data:{ mime_type:'application/pdf', data:b64 } },
+          { text: userText }
+        ]}],
         generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
       }),
     });

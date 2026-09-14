@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  JobAssist AI — Popup Controller v4
+//  JobAssist AI — Popup Controller v5
 // ═══════════════════════════════════════════════════════════
 
 // ── Tab navigation ───────────────────────────────────────────
@@ -14,7 +14,7 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// ── Segment buttons (multiple groups) ────────────────────────
+// ── Segment buttons ──────────────────────────────────────────
 document.querySelectorAll('.seg').forEach(btn => {
   btn.addEventListener('click', () => {
     const group = btn.dataset.group;
@@ -46,28 +46,20 @@ const ALL_KEYS  = [...PROFILE_KEYS, ...PREF_KEYS, 'apiKey', 'apiKeyEnc', 'compan
 
 // ── Restore saved data on open ───────────────────────────────
 chrome.storage.local.get(ALL_KEYS, data => {
-  // Resume
-  if (data.resumeFileName) showFilePill(data.resumeFileName);
+  if (data.resumeFileName) showFilePill(data.resumeFileName, !data.resumeText && !!data.resumeBase64);
 
-  // Personal
   setVal('firstName',  data.firstName);
   setVal('lastName',   data.lastName);
   setVal('email',      data.email);
   setVal('phone',      data.phone);
   setVal('dob',        data.dob);
-
-  // Location
   setVal('city',       data.city);
   setVal('state',      data.state);
   setVal('country',    data.country);
   setVal('zipcode',    data.zipcode);
-
-  // Links
   setVal('linkedinUrl',   data.linkedinUrl);
   setVal('githubUrl',     data.githubUrl);
   setVal('portfolioUrl',  data.portfolioUrl);
-
-  // Work prefs
   setVal('currentCtc',   data.currentCtc);
   setVal('expectedCtc',  data.expectedCtc);
   setVal('noticePeriod', data.noticePeriod);
@@ -75,23 +67,18 @@ chrome.storage.local.get(ALL_KEYS, data => {
   setVal('workAuth',     data.workAuth);
   setVal('relocate',     data.relocate);
 
-  // Work mode segment
   if (data.workMode) {
     document.querySelectorAll('.seg[data-group="workMode"]').forEach(b => {
       b.classList.toggle('active', b.dataset.val === data.workMode);
     });
   }
 
-  // Education
   setVal('degree',   data.degree);
   setVal('college',  data.college);
   setVal('gradYear', data.gradYear);
   setVal('cgpa',     data.cgpa);
-
-  // Extra context
   setVal('extraContext', data.extraContext);
 
-  // Prefs
   if (data.answerStyle) {
     document.querySelectorAll('.seg[data-group="style"]').forEach(b => {
       b.classList.toggle('active', b.dataset.val === data.answerStyle);
@@ -102,18 +89,19 @@ chrome.storage.local.get(ALL_KEYS, data => {
   if (data.autoFill) document.getElementById('autoFillToggle')?.classList.add('on');
   if (data.autoJd === false) document.getElementById('autoJdToggle')?.classList.remove('on');
 
-  // API key
   if (data.apiKey) setVal('apiKeyInput', data.apiKey);
 
-  // Companies
   renderCompanies(data.companies || {});
-
-  // Status pill
   updateStatus(data);
 
-  // Verified badges
   if (data.linkedinData) setVerified('linkedin', true, '✓ URL saved');
-  if (data.githubData)   setVerified('github', true, `✓ Connected · ${data.githubData.publicRepos} repos`);
+  if (data.githubData) {
+    const age = data.githubData.fetchedAt
+      ? Math.round((Date.now() - data.githubData.fetchedAt) / 60000)
+      : null;
+    const ageStr = age !== null ? ` · ${age < 60 ? age + 'm ago' : Math.round(age/60) + 'h ago'}` : '';
+    setVerified('github', true, `✓ Connected · ${data.githubData.publicRepos} repos${ageStr}`);
+  }
 });
 
 // ── Status pill ──────────────────────────────────────────────
@@ -144,26 +132,44 @@ function handleFile(file) {
   if (file.size > 1024 * 1024) { showFeedback('profileMsg', 'File too large. Max 1MB.', true); return; }
   const reader = new FileReader();
   if (file.type === 'application/pdf') {
-    reader.onload = e => {
-      chrome.storage.local.set({ resumeBase64: e.target.result, resumeFileName: file.name, resumeText: null },
-        () => chrome.storage.local.get(ALL_KEYS, updateStatus));
-      showFilePill(file.name);
+    reader.onload = async e => {
+      // Store base64 immediately
+      await new Promise(r => chrome.storage.local.set({
+        resumeBase64: e.target.result, resumeFileName: file.name, resumeText: null
+      }, r));
+      showFilePill(file.name, true);
+      chrome.storage.local.get(ALL_KEYS, updateStatus);
+
+      // FIX 1: Auto-extract PDF text using Gemini
+      showFeedback('profileMsg', '⏳ Extracting text from PDF…');
+      const result = await chrome.runtime.sendMessage({ type: 'EXTRACT_PDF_TEXT' });
+      if (result.error) {
+        showFeedback('profileMsg', `PDF saved. Text extraction needs API key: ${result.error}`, true);
+        showFilePill(file.name, true); // show with warning
+      } else {
+        showFeedback('profileMsg', `✓ PDF loaded & text extracted (${result.length} chars)`);
+        showFilePill(file.name, false); // no warning
+        chrome.storage.local.get(ALL_KEYS, updateStatus);
+      }
     };
     reader.readAsDataURL(file);
   } else {
     reader.onload = e => {
       chrome.storage.local.set({ resumeText: e.target.result, resumeFileName: file.name, resumeBase64: null },
         () => chrome.storage.local.get(ALL_KEYS, updateStatus));
-      showFilePill(file.name);
+      showFilePill(file.name, false);
     };
     reader.readAsText(file);
   }
 }
 
-function showFilePill(name) {
+function showFilePill(name, needsExtraction = false) {
   uploadZone.classList.add('hidden');
   document.getElementById('filePill').classList.remove('hidden');
   document.getElementById('fileName').textContent = name;
+  // Show extraction note if PDF text wasn't extracted
+  const noteEl = document.getElementById('pdfExtractNote');
+  if (noteEl) noteEl.classList.toggle('hidden', !needsExtraction);
 }
 
 document.getElementById('removeFile').addEventListener('click', () => {
@@ -171,6 +177,23 @@ document.getElementById('removeFile').addEventListener('click', () => {
   document.getElementById('filePill').classList.add('hidden');
   uploadZone.classList.remove('hidden');
   fileInput.value = '';
+});
+
+// ── Manual PDF extraction button ────────────────────────────
+document.getElementById('extractPdfBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('extractPdfBtn');
+  btn.textContent = 'Extracting…';
+  btn.disabled = true;
+  const result = await chrome.runtime.sendMessage({ type: 'EXTRACT_PDF_TEXT' });
+  btn.disabled = false;
+  btn.textContent = 'Extract text';
+  if (result.error) {
+    showFeedback('profileMsg', result.error, true);
+  } else {
+    showFeedback('profileMsg', `✓ Extracted ${result.length} characters from PDF`);
+    document.getElementById('pdfExtractNote')?.classList.add('hidden');
+    chrome.storage.local.get(ALL_KEYS, updateStatus);
+  }
 });
 
 // ── Save profile ──────────────────────────────────────────────
@@ -204,31 +227,31 @@ document.getElementById('saveProfile').addEventListener('click', () => {
   });
 });
 
-// ── GitHub verify ─────────────────────────────────────────────
-document.getElementById('connectGitHub').addEventListener('click', async () => {
-  const url    = getVal('githubUrl');
-  const handle = extractGitHubHandle(url);
-  if (!handle) { setVerified('github', false, '✗ Invalid GitHub URL'); return; }
-  document.getElementById('githubStatus').textContent = 'Fetching…';
-  try {
-    const [uRes, rRes] = await Promise.all([
-      fetch(`https://api.github.com/users/${handle}`),
-      fetch(`https://api.github.com/users/${handle}/repos?sort=updated&per_page=10`),
-    ]);
-    if (!uRes.ok) throw new Error('User not found');
-    const user  = await uRes.json();
-    const repos = await rRes.json();
-    const githubData = {
-      name: user.name || handle, bio: user.bio || '',
-      followers: user.followers,  publicRepos: user.public_repos,
-      repos: repos.map(r => ({ name: r.name, description: r.description, stars: r.stargazers_count, language: r.language })),
-    };
-    chrome.storage.local.set({ githubData });
-    setVerified('github', true, `✓ Connected · ${user.public_repos} repos`);
-  } catch (err) {
-    setVerified('github', false, `✗ ${err.message}`);
+// ── GitHub verify + FIX 2: REFRESH ──────────────────────────
+document.getElementById('connectGitHub').addEventListener('click', refreshGitHub);
+
+// New: refresh button next to verify
+document.getElementById('refreshGitHubBtn')?.addEventListener('click', refreshGitHub);
+
+async function refreshGitHub() {
+  const url = getVal('githubUrl');
+  if (!url || !url.includes('github.com')) {
+    setVerified('github', false, '✗ Invalid GitHub URL');
+    return;
   }
-});
+  document.getElementById('githubStatus').textContent = '⏳ Fetching from GitHub…';
+
+  // Save URL first
+  await new Promise(r => chrome.storage.local.set({ githubUrl: url }, r));
+
+  const result = await chrome.runtime.sendMessage({ type: 'REFRESH_GITHUB', githubUrl: url });
+  if (result.error) {
+    setVerified('github', false, `✗ ${result.error}`);
+  } else {
+    const d = result.githubData;
+    setVerified('github', true, `✓ Connected · ${d.publicRepos} repos`);
+  }
+}
 
 document.getElementById('connectLinkedIn').addEventListener('click', () => {
   const url = getVal('linkedinUrl');
@@ -298,7 +321,7 @@ function renderApplicationLog() {
     if (!log) return;
     const apps = data.applications || [];
     if (!apps.length) {
-      log.innerHTML = '<p style="font-size:12px;color:#9CA3AF;margin-top:4px">No applications logged yet. The tracker dialog will appear automatically when you visit job pages.</p>';
+      log.innerHTML = '<p style="font-size:12px;color:#9CA3AF;margin-top:4px">No applications logged yet.</p>';
       return;
     }
     log.innerHTML = apps.map(a => {
@@ -344,12 +367,16 @@ async function loadContext() {
     return;
   }
   result.sections.forEach(({ title, status, detail }) => {
-    const badgeClass = { loaded: 'badge-ok', connected: 'badge-ok', set: 'badge-ok',
-      'url-only': 'badge-warn', 'url-saved': 'badge-warn',
-      missing: 'badge-error', empty: 'badge-warn' }[status] || 'badge-warn';
-    const badgeLabel = { loaded: '✓ Loaded', connected: '✓ Connected', set: '✓ Set',
-      'url-only': '⚠ URL only', 'url-saved': '⚠ URL only',
-      missing: '✗ Missing', empty: '— Empty' }[status] || status;
+    const badgeClass = {
+      loaded: 'badge-ok', connected: 'badge-ok', set: 'badge-ok',
+      'url-only': 'badge-warn', 'url-saved': 'badge-warn', 'pdf-only': 'badge-warn',
+      missing: 'badge-error', empty: 'badge-warn',
+    }[status] || 'badge-warn';
+    const badgeLabel = {
+      loaded: '✓ Loaded', connected: '✓ Connected', set: '✓ Set',
+      'url-only': '⚠ URL only', 'url-saved': '⚠ URL only', 'pdf-only': '⚠ PDF only',
+      missing: '✗ Missing', empty: '— Empty',
+    }[status] || status;
     const section = document.createElement('div');
     section.className = 'context-section';
     section.innerHTML = `
@@ -362,7 +389,7 @@ async function loadContext() {
     section.querySelector('.context-section-header').addEventListener('click', () => {
       section.querySelector('.context-section-body').classList.toggle('open');
     });
-    if (['missing', 'empty'].includes(status)) {
+    if (['missing', 'empty', 'pdf-only'].includes(status)) {
       section.querySelector('.context-section-body').classList.add('open');
     }
     container.appendChild(section);
@@ -459,7 +486,7 @@ function showFeedback(id, msg, isErr = false) {
   el.textContent = msg;
   el.className = `feedback${isErr ? ' err' : ''}`;
   el.classList.remove('hidden');
-  if (!isErr) setTimeout(() => el.classList.add('hidden'), 3000);
+  if (!isErr) setTimeout(() => el.classList.add('hidden'), 3500);
 }
 function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
