@@ -317,7 +317,7 @@
 
     <!-- ── COMPANIES TAB ── -->
     <section class="pane" id="tab-companies">
-      <p class="section-note">Save notes per company. These are injected as context when you apply.</p>
+      <p class="section-note">Companies you've saved notes for — injected as context when you apply.</p>
       <div class="field">
         <div class="input-row">
           <input type="text" class="inp" id="companyName" placeholder="Company name" />
@@ -325,7 +325,10 @@
         </div>
       </div>
       <div class="companies-list" id="companiesList"></div>
-      <p class="feedback hidden" id="companiesMsg"></p>
+
+      <div class="section-title" style="margin-top:12px">Application log</div>
+      <p class="section-note">Auto-logged when you use the tracker dialog while applying.</p>
+      <div id="applicationLog"></div>
     </section>
 
     <!-- ── MY CONTEXT TAB ── -->

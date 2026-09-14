@@ -9,7 +9,8 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-    if (tab.dataset.tab === 'context') loadContext();
+    if (tab.dataset.tab === 'context')   loadContext();
+    if (tab.dataset.tab === 'companies') renderApplicationLog();
   });
 });
 
@@ -288,6 +289,31 @@ function renderCompanies(companies) {
       });
     });
     list.appendChild(card);
+  });
+}
+
+function renderApplicationLog() {
+  chrome.storage.local.get(['applications'], data => {
+    const log = document.getElementById('applicationLog');
+    if (!log) return;
+    const apps = data.applications || [];
+    if (!apps.length) {
+      log.innerHTML = '<p style="font-size:12px;color:#9CA3AF;margin-top:4px">No applications logged yet. The tracker dialog will appear automatically when you visit job pages.</p>';
+      return;
+    }
+    log.innerHTML = apps.map(a => {
+      const date = new Date(a.date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+      return `<div class="app-log-card">
+        <div class="app-log-header">
+          <div>
+            <div class="app-log-company">${escapeHtml(a.company)}</div>
+            <div class="app-log-role">${escapeHtml(a.role || '—')}</div>
+          </div>
+          <div class="app-log-date">${date}</div>
+        </div>
+        ${a.url ? `<a class="app-log-url" href="${a.url}" target="_blank">${new URL(a.url).hostname}</a>` : ''}
+      </div>`;
+    }).join('');
   });
 }
 

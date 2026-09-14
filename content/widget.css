@@ -378,3 +378,164 @@
   border-top: 1px solid #E5E7EB;
   border-radius: 0;
 }
+
+/* ── JD Link fetch row ───────────────────────────────── */
+#ja-jd-link-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+}
+#ja-jd-link {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  flex: 1;
+  padding: 6px 9px;
+  border: 1px solid #E5E7EB;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #111827;
+  background: #fff;
+  outline: none;
+}
+#ja-jd-link:focus { border-color: #4F46E5; }
+#ja-jd-fetch-btn {
+  all: initial;
+  font-family: inherit;
+  padding: 6px 12px;
+  background: #4F46E5;
+  color: #fff;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#ja-jd-fetch-btn:disabled { background: #A5B4FC; cursor: not-allowed; }
+
+#ja-jd-fetch-status {
+  font-size: 11.5px;
+  padding: 4px 10px;
+  margin: 0 10px;
+  border-radius: 4px;
+}
+.ja-fetch-loading { color: #4F46E5; background: #EEF2FF; }
+.ja-fetch-ok      { color: #16A34A; background: #F0FDF4; }
+.ja-fetch-error   { color: #DC2626; background: #FEF2F2; }
+
+/* ── Application Tracker Dialog ─────────────────────── */
+#ja-tracker {
+  all: initial;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483645;
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  animation: ja-slide-up 0.2s ease;
+}
+
+@keyframes ja-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#ja-tracker.ja-hidden { display: none !important; }
+
+#ja-tracker-inner {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.16);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 3px solid #4F46E5;
+}
+
+#ja-tracker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+  font-family: inherit;
+}
+
+#ja-tracker-close {
+  all: initial;
+  cursor: pointer;
+  font-size: 16px;
+  color: #9CA3AF;
+  font-family: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+#ja-tracker-close:hover { background: #F3F4F6; color: #374151; }
+
+#ja-tracker-sub {
+  font-size: 12px;
+  color: #6B7280;
+  line-height: 1.4;
+  font-family: inherit;
+  margin: 0;
+}
+
+.ja-tfield {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: inherit;
+}
+.ja-tfield label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #374151;
+  font-family: inherit;
+}
+.ja-tfield input {
+  all: initial;
+  font-family: inherit;
+  padding: 7px 9px;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ja-tfield input:focus { border-color: #4F46E5; }
+.ja-tfield input::placeholder { color: #9CA3AF; }
+
+#ja-tracker-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+#ja-tracker-save {
+  all: initial;
+  font-family: inherit;
+  flex: 1;
+  padding: 9px;
+  background: #4F46E5;
+  color: #fff;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+#ja-tracker-save:hover { background: #4338CA; }
+#ja-tracker-skip {
+  all: initial;
+  font-family: inherit;
+  padding: 9px 14px;
+  border: 1px solid #E5E7EB;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #6B7280;
+  cursor: pointer;
+}
+#ja-tracker-skip:hover { border-color: #9CA3AF; }
