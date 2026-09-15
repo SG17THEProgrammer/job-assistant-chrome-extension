@@ -429,18 +429,22 @@
           <button id="ja-sb-run-ats" class="ja-sb-btn-primary" type="button" style="margin-top:10px;width:100%">Analyze now</button>
         </div>
         <div id="ja-sb-ats-result" class="ja-hidden">
-          <!-- Score ring -->
+          <!-- Score ring: container holds SVG + centered number -->
           <div id="ja-sb-score-ring-wrap">
-            <svg id="ja-sb-score-svg" viewBox="0 0 80 80" width="80" height="80">
-              <circle cx="40" cy="40" r="34" fill="none" stroke="#E5E7EB" stroke-width="7"/>
-              <circle id="ja-sb-score-arc" cx="40" cy="40" r="34" fill="none"
-                stroke="#4F46E5" stroke-width="7" stroke-linecap="round"
-                stroke-dasharray="213.6" stroke-dashoffset="213.6"
-                transform="rotate(-90 40 40)"/>
-            </svg>
-            <div id="ja-sb-score-num">0%</div>
+            <div id="ja-sb-ring-container">
+              <svg id="ja-sb-score-svg" viewBox="0 0 80 80" width="80" height="80">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="#E5E7EB" stroke-width="7"/>
+                <circle id="ja-sb-score-arc" cx="40" cy="40" r="34" fill="none"
+                  stroke="#4F46E5" stroke-width="7" stroke-linecap="round"
+                  stroke-dasharray="213.6" stroke-dashoffset="213.6"
+                  transform="rotate(-90 40 40)"/>
+              </svg>
+              <div id="ja-sb-score-num">—</div>
+            </div>
+            <div id="ja-sb-score-text">
+              <div id="ja-sb-score-label">Awaiting analysis</div>
+            </div>
           </div>
-          <div id="ja-sb-score-label">Calculating…</div>
           <div id="ja-sb-ats-tip"></div>
           <div id="ja-sb-kw-matched">
             <p class="ja-sb-kw-title">Matched</p>
@@ -450,7 +454,7 @@
             <p class="ja-sb-kw-title missing">Missing</p>
             <div class="ja-sb-chips" id="ja-sb-missing-chips"></div>
           </div>
-          <button id="ja-sb-rerun-ats" class="ja-sb-btn-ghost" type="button" style="width:100%;margin-top:8px">Re-analyze</button>
+          <button id="ja-sb-rerun-ats" class="ja-sb-btn-ghost" type="button">↻ Re-analyze with updated JD</button>
         </div>
       </div>
 
@@ -534,9 +538,9 @@
     sidebar.querySelector('#ja-sb-insert').addEventListener('click', insertAnswer);
     sidebar.querySelector('#ja-sb-copy').addEventListener('click', copyAnswer);
     sidebar.querySelector('#ja-sb-run-ats').addEventListener('click', runAts);
-    sidebar.querySelector('#ja-sb-rerun-ats').addEventListener('click', runAts);
+    sidebar.querySelector('#ja-sb-rerun-ats').addEventListener('click', () => runAts(true));
     sidebar.querySelector('#ja-sb-refresh').addEventListener('click', () => {
-      if (jobDesc) runAts();
+      if (jobDesc) runAts(true);
     });
     sidebar.querySelector('#ja-sb-jd-save').addEventListener('click', saveJdAndAnalyze);
     sidebar.querySelector('#ja-sb-jd-fetch').addEventListener('click', fetchJdUrl);
@@ -841,10 +845,20 @@
   // ══════════════════════════════════════════════════════════
   //  ATS SCORE
   // ══════════════════════════════════════════════════════════
-  async function runAts() {
+  let lastAnalyzedJd = ''; // track what was last sent to avoid pointless re-runs
+
+  async function runAts(force = false) {
     const jd = sidebar.querySelector('#ja-sb-jd').value.trim() || jobDesc;
-    if (!jd) {
-      switchTab('jd');
+    if (!jd) { switchTab('jd'); return; }
+
+    // If JD hasn't changed and we have results, skip — tell user
+    if (!force && jd === lastAnalyzedJd && atsData) {
+      const rerunBtn = sidebar.querySelector('#ja-sb-rerun-ats');
+      if (rerunBtn) {
+        const orig = rerunBtn.textContent;
+        rerunBtn.textContent = '✓ Already up to date';
+        setTimeout(() => rerunBtn.textContent = orig, 2000);
+      }
       return;
     }
 
@@ -861,39 +875,49 @@
 
     if (res.error) {
       emptyEl.classList.remove('ja-hidden');
-      emptyEl.querySelector('#ja-sb-run-ats') && (emptyEl.innerHTML =
-        `<p class="ja-sb-muted" style="color:#DC2626">⚠ ${res.error}</p>
-         <button id="ja-sb-run-ats" class="ja-sb-btn-primary" type="button" style="margin-top:10px;width:100%">Try again</button>`);
-      emptyEl.querySelector('#ja-sb-run-ats')?.addEventListener('click', runAts);
+      emptyEl.innerHTML =
+        `<p class="ja-sb-muted" style="color:#DC2626;margin-bottom:8px">⚠ ${res.error}</p>
+         <button id="ja-sb-run-ats" class="ja-sb-btn-primary" type="button" style="width:100%">Try again</button>`;
+      emptyEl.querySelector('#ja-sb-run-ats')?.addEventListener('click', () => runAts(true));
       return;
     }
 
+    lastAnalyzedJd = jd;
     atsData = res;
     const score = res.score || 0;
 
     // Animate ring
-    const circumference = 213.6;
-    const offset = circumference - (score / 100) * circumference;
     const arc = sidebar.querySelector('#ja-sb-score-arc');
-    arc.style.strokeDashoffset = offset;
+    arc.style.strokeDashoffset = 213.6 - (score / 100) * 213.6;
     arc.style.stroke = score >= 70 ? '#16A34A' : score >= 40 ? '#D97706' : '#DC2626';
 
-    sidebar.querySelector('#ja-sb-score-num').textContent = `${score}%`;
-    sidebar.querySelector('#ja-sb-score-label').textContent =
-      score >= 70 ? 'Strong match ✓' : score >= 40 ? 'Moderate match' : 'Low match';
-    sidebar.querySelector('#ja-sb-score-label').style.color =
-      score >= 70 ? '#16A34A' : score >= 40 ? '#D97706' : '#DC2626';
+    sidebar.querySelector('#ja-sb-score-num').textContent   = `${score}%`;
+    const label = score >= 70 ? 'Strong match ✓' : score >= 40 ? 'Moderate match' : 'Low match';
+    const color = score >= 70 ? '#16A34A'         : score >= 40 ? '#D97706'        : '#DC2626';
+    sidebar.querySelector('#ja-sb-score-label').textContent = label;
+    sidebar.querySelector('#ja-sb-score-label').style.color = color;
 
-    if (res.tip) {
-      sidebar.querySelector('#ja-sb-ats-tip').textContent = '💡 ' + res.tip;
-      sidebar.querySelector('#ja-sb-ats-tip').classList.remove('ja-hidden');
-    }
+    const tipEl = sidebar.querySelector('#ja-sb-ats-tip');
+    if (res.tip) { tipEl.textContent = '💡 ' + res.tip; tipEl.classList.remove('ja-hidden'); }
+    else           tipEl.classList.add('ja-hidden');
 
     renderChips('#ja-sb-matched-chips', res.matched || [], false);
     renderChips('#ja-sb-missing-chips', res.missing || [], true);
 
+    // Show Re-analyze button only when JD tab has been edited
+    sidebar.querySelector('#ja-sb-rerun-ats').classList.add('ja-hidden');
     resultEl.classList.remove('ja-hidden');
     switchTab('score');
+
+    // Watch JD textarea — reveal Re-analyze if user edits it after analysis
+    const jdEl = sidebar.querySelector('#ja-sb-jd');
+    const onJdEdit = () => {
+      if (jdEl.value.trim() !== lastAnalyzedJd) {
+        sidebar.querySelector('#ja-sb-rerun-ats').classList.remove('ja-hidden');
+        jdEl.removeEventListener('input', onJdEdit);
+      }
+    };
+    jdEl.addEventListener('input', onJdEdit);
   }
 
   function renderChips(selector, words, isMissing) {
@@ -1175,54 +1199,224 @@
   // ══════════════════════════════════════════════════════════
   //  JD SCANNER
   // ══════════════════════════════════════════════════════════
-  function scanForJobDesc() {
-    const SELS = [
-      '[class*="description__text"]', '[class*="job-description"]', '[class*="jobDescription"]',
-      '.jobsearch-jobDescriptionText', '[data-testid="job-description"]',
-      '.posting-description', '#job-details', '[class*="job-details"]',
-      '[data-automation-id="job-posting-details"]', '[class*="JobDetails"]',
-      '[class*="job_description"]', '[itemprop="description"]',
-      '[class*="jobDescriptionContent"]', '#jobDescriptionText',
-    ];
-    for (const sel of SELS) {
-      try {
-        const el = document.querySelector(sel);
-        if (el && el.innerText.trim().length > 150) {
-          jobDesc = el.innerText.trim().slice(0, 10000);
-          detectCompanyAndRole();
-          // Update sidebar JD textarea if open
-          if (sidebar) {
-            const jdEl = sidebar.querySelector('#ja-sb-jd');
-            if (jdEl && !jdEl.value.trim()) jdEl.value = jobDesc.slice(0, 8000);
+  // ── ATS API extraction — Simplify's real trick ───────────
+  // Major ATS platforms publish free unauthenticated APIs.
+  // We call those directly instead of scraping rendered HTML,
+  // which is fragile and fails on JS-heavy SPAs like Ashby.
+  async function tryAtsApi() {
+    const url  = location.href;
+    const path = location.pathname;
+
+    // ── 1. Ashby: jobs.ashbyhq.com/COMPANY/UUID ──────────
+    if (host === 'jobs.ashbyhq.com' || host.endsWith('.ashbyhq.com')) {
+      const uuid = url.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)?.[1];
+      if (uuid) {
+        try {
+          const res  = await fetch(`https://api.ashbyhq.com/posting-api/job-posting?jobPostingId=${uuid}`);
+          if (res.ok) {
+            const d = await res.json();
+            const p = d.job || d.jobPosting || d;
+            // descriptionPlain is clean text; description is HTML
+            const text = p.descriptionPlain || stripHtml(p.description || p.descriptionHtml || '');
+            const title = p.title || p.jobTitle || '';
+            const company = p.jobBoard?.name || p.companyName || '';
+            if (text && text.length > 100) {
+              setJobDesc(text, title, company);
+              return true;
+            }
           }
-          return true;
+        } catch {}
+      }
+    }
+
+    // ── 2. Greenhouse: job-boards.greenhouse.io/COMPANY/jobs/ID ──
+    const ghMatch = url.match(/greenhouse\.io\/([^\/\?#]+)\/jobs\/(\d+)/i)
+                 || url.match(/boards\.greenhouse\.io\/([^\/\?#]+)\/jobs\/(\d+)/i);
+    if (ghMatch) {
+      try {
+        const res = await fetch(`https://boards-api.greenhouse.io/v1/boards/${ghMatch[1]}/jobs/${ghMatch[2]}`);
+        if (res.ok) {
+          const d    = await res.json();
+          const text = d.content ? stripHtml(d.content) : '';
+          if (text.length > 100) {
+            setJobDesc(text, d.title || '', ghMatch[1]);
+            return true;
+          }
         }
       } catch {}
     }
 
-    // Fallback: largest text block on page
-    const candidates = [...document.querySelectorAll('div, section, article')]
+    // ── 3. Lever: jobs.lever.co/COMPANY/UUID ─────────────
+    const leverMatch = url.match(/lever\.co\/([^\/\?#]+)\/([0-9a-f-]{36})/i);
+    if (leverMatch) {
+      try {
+        const res = await fetch(`https://api.lever.co/v0/postings/${leverMatch[1]}/${leverMatch[2]}`);
+        if (res.ok) {
+          const d    = await res.json();
+          // Lever nests content in lists array
+          const sections = (d.lists || []).map(l => `${l.text}\n${l.content ? stripHtml(l.content) : ''}`).join('\n\n');
+          const text = (d.descriptionPlain || stripHtml(d.description || '') + '\n\n' + sections).trim();
+          if (text.length > 100) {
+            setJobDesc(text, d.text || d.title || '', leverMatch[1]);
+            return true;
+          }
+        }
+      } catch {}
+    }
+
+    // ── 4. Workday: myworkdayjobs.com ────────────────────
+    // Workday embeds JSON-LD on page — read it, don't scrape DOM
+    if (host.includes('myworkdayjobs.com') || host.includes('workday.com')) {
+      const jsonLd = extractJsonLd('JobPosting');
+      if (jsonLd) {
+        const text = stripHtml(jsonLd.description || '');
+        if (text.length > 100) {
+          setJobDesc(text, jsonLd.title || '', jsonLd.hiringOrganization?.name || '');
+          return true;
+        }
+      }
+    }
+
+    // ── 5. JSON-LD schema.org/JobPosting (universal) ─────
+    // Many ATS platforms embed this: LinkedIn, Indeed, SmartRecruiters, etc.
+    const jsonLd = extractJsonLd('JobPosting');
+    if (jsonLd) {
+      const text = stripHtml(jsonLd.description || '');
+      if (text.length > 100) {
+        setJobDesc(
+          text,
+          jsonLd.title || jsonLd.name || '',
+          jsonLd.hiringOrganization?.name || ''
+        );
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function extractJsonLd(type) {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      try {
+        const d = JSON.parse(s.textContent);
+        const arr = Array.isArray(d) ? d : [d];
+        for (const item of arr) {
+          if (item['@type'] === type) return item;
+          // Sometimes nested in @graph
+          if (item['@graph']) {
+            const found = item['@graph'].find(g => g['@type'] === type);
+            if (found) return found;
+          }
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  function stripHtml(html) {
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function setJobDesc(text, title, company) {
+    jobDesc = text.slice(0, 10000);
+    if (title && !detectedRole)    detectedRole = title;
+    if (company && !companyName)   companyName  = company;
+    // Also run the page-level detect to fill in gaps
+    detectCompanyAndRole();
+    if (sidebar) {
+      const jdEl = sidebar.querySelector('#ja-sb-jd');
+      if (jdEl && !jdEl.value.trim()) jdEl.value = jobDesc.slice(0, 8000);
+      // Update job bar
+      if (detectedRole || companyName) {
+        sidebar.querySelector('#ja-sb-jobbar').classList.remove('ja-hidden');
+        if (detectedRole) {
+          sidebar.querySelector('#ja-sb-role').textContent = detectedRole;
+          sidebar.querySelector('#ja-sb-jd-role').value   = detectedRole;
+        }
+        if (companyName) {
+          sidebar.querySelector('#ja-sb-company-tag').textContent   = companyName;
+          sidebar.querySelector('#ja-sb-jd-company').value          = companyName;
+        }
+      }
+    }
+  }
+
+  // ── DOM-based scan (fallback when no API works) ────────
+  function scanDom() {
+    // Ordered from most-specific to most-generic
+    const SELS = [
+      // ATS-specific
+      '[data-automation-id="job-posting-details"]',     // Workday
+      '.posting-description',                            // Lever / Greenhouse hosted pages
+      '[class*="description__text"]',                    // LinkedIn jobs
+      '.jobsearch-jobDescriptionText',                   // Indeed
+      '[data-testid="job-description"]',                 // various
+      '[itemprop="description"]',                        // schema.org markup
+      // Generic but reliable
+      '#job-details', '#jobDescriptionText', '#job-description',
+      '[class*="job-description"]', '[class*="jobDescription"]',
+      '[class*="JobDetails"]', '[class*="job-details"]',
+      '[class*="job_description"]', '[class*="jobDescriptionContent"]',
+      // Ashby DOM fallback
+      '[class*="ashby"]', 'main [class*="content"]',
+    ];
+
+    for (const sel of SELS) {
+      try {
+        const el = document.querySelector(sel);
+        if (el) {
+          const text = el.innerText?.trim();
+          if (text && text.length > 150) {
+            const lc = text.toLowerCase();
+            // Basic sanity — must look like a JD
+            if (['responsib','qualif','require','experienc','skill','about the role','about this role'].some(w => lc.includes(w))) {
+              setJobDesc(text, '', '');
+              return true;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // Last resort: largest meaningful text block
+    const candidates = [...document.querySelectorAll('div, section, article, main')]
       .filter(el => {
+        // Skip nav, header, footer, sidebar
+        const tag = el.tagName.toLowerCase();
+        const cls = (el.className || '').toLowerCase();
+        const id  = (el.id || '').toLowerCase();
+        if (['nav','header','footer'].includes(tag)) return false;
+        if (['nav','menu','sidebar','header','footer','banner'].some(w => cls.includes(w) || id.includes(w))) return false;
         const t = el.innerText?.trim();
-        return t && t.length > 300 && t.length < 10000;
+        return t && t.length > 400 && t.length < 15000;
       })
       .sort((a, b) => b.innerText.length - a.innerText.length);
 
-    for (const el of candidates.slice(0, 3)) {
+    for (const el of candidates.slice(0, 5)) {
       const text = el.innerText.trim();
       const lc   = text.toLowerCase();
-      // Must look like a JD
-      if (['responsibilities','qualifications','requirements','experience','skills'].some(w => lc.includes(w))) {
-        jobDesc = text.slice(0, 10000);
-        detectCompanyAndRole();
-        if (sidebar) {
-          const jdEl = sidebar.querySelector('#ja-sb-jd');
-          if (jdEl && !jdEl.value.trim()) jdEl.value = jobDesc.slice(0, 8000);
-        }
+      if (['responsib','qualif','require','experienc','about the role','what you'].some(w => lc.includes(w))) {
+        setJobDesc(text, '', '');
         return true;
       }
     }
     return false;
+  }
+
+  // Main entry — try API first, then DOM
+  async function scanForJobDesc() {
+    const apiFound = await tryAtsApi();
+    if (!apiFound) scanDom();
   }
 
 })();
