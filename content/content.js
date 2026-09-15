@@ -49,9 +49,12 @@
   //  URL-first strategy — no waiting for DOM scoring
   // ════════════════════════════════════════════════════════
 
-  // Known ATS / career domains — always activate
-  const ATS_DOMAINS = [
-    'linkedin.com','indeed.com','naukri.com','internshala.com','glassdoor.com',
+  // Known ATS / career domains.
+  // Two tiers:
+  //   PURE_JOB_DOMAINS  — every page is a job page (dedicated job boards, ATS tools)
+  //   PATH_GATED        — mixed sites (LinkedIn, Glassdoor) where we must also check the path
+  const PURE_JOB_DOMAINS = [
+    'indeed.com','naukri.com','internshala.com',
     'monster.com','shine.com','foundit.in','unstop.com','wellfound.com','angel.co',
     'instahyre.com','hirist.com','iimjobs.com','cutshort.io','apna.co',
     'lever.co','greenhouse.io','workday.com','myworkdayjobs.com','icims.com',
@@ -59,9 +62,30 @@
     'jobvite.com','recruitee.com','workable.com','applytojob.com','jazzhr.com',
     'careers.google.com','jobs.apple.com','amazon.jobs','careers.microsoft.com',
     'metacareers.com','jobs.netflix.com','jobs.ycombinator.com','hiring.cafe',
-    'payu.in','razorpay.com','zomato.com','swiggy.com','meesho.com','cred.club',
   ];
-  const isKnownATS = ATS_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+
+  // Mixed sites: only activate when path matches job-related patterns
+  const PATH_GATED_DOMAINS = {
+    'linkedin.com':   ['/jobs/', '/job/', '/apply/'],
+    'glassdoor.com':  ['/job-listing/', '/job/', '/apply/'],
+    'glassdoor.co.in':['/job-listing/', '/job/', '/apply/'],
+    'payu.in':        ['/job', '/career', '/apply', '/position', '/opening'],
+    'razorpay.com':   ['/job', '/career', '/apply'],
+    'meesho.com':     ['/job', '/career', '/apply'],
+    'cred.club':      ['/job', '/career', '/apply'],
+    'swiggy.com':     ['/job', '/career', '/apply'],
+    'zomato.com':     ['/job', '/career', '/apply'],
+  };
+
+  const isPureJobDomain = PURE_JOB_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+
+  const isPathGatedMatch = Object.entries(PATH_GATED_DOMAINS).some(([domain, paths]) => {
+    if (host !== domain && !host.endsWith('.' + domain)) return false;
+    const p = location.pathname.toLowerCase();
+    return paths.some(allowed => p.includes(allowed));
+  });
+
+  const isKnownATS = isPureJobDomain || isPathGatedMatch;
 
   // URL signals — strong indicators without DOM access
   function getUrlScore() {
