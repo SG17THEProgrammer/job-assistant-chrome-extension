@@ -359,12 +359,11 @@
       <!-- Header -->
       <div id="ja-sb-header">
         <div id="ja-sb-logo">
-          <div id="ja-sb-mark">JA</div>
           <span id="ja-sb-title">JobAssist <em>AI</em></span>
         </div>
         <div id="ja-sb-header-actions">
           <button id="ja-sb-refresh" title="Refresh ATS score" type="button">↻</button>
-          <button id="ja-sb-minimize" title="Minimize" type="button">‹</button>
+          <button id="ja-sb-minimize" title="Minimize" type="button">></button>
         </div>
       </div>
 
@@ -520,7 +519,6 @@
 
       <!-- Toggle tab (collapsed state) -->
       <div id="ja-sb-toggle-tab" title="Open JobAssist AI">
-        <div id="ja-sb-toggle-mark">JA</div>
         <span id="ja-sb-toggle-label">JobAssist AI</span>
       </div>
     `;

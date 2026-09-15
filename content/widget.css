@@ -199,7 +199,7 @@
   background: #fff;
   border: 1px solid #C7D2FE;
   border-radius: 10px;
-  padding: 2px 8px;
+  padding: 10px;
   white-space: nowrap;
   font-family: inherit;
 }
@@ -283,6 +283,8 @@
   line-height: 1.5;
   min-height: 64px;
   transition: border-color 0.15s;
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
 #ja-sidebar textarea:focus {
   border-color: #4F46E5;
@@ -306,6 +308,8 @@
   background: #fff;
   outline: none;
   transition: border-color 0.15s;
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
 .ja-sb-input:focus {
   border-color: #4F46E5;
@@ -554,6 +558,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  /* padding:8px; */
 }
 .ja-sb-chip {
   font-size: 11px;
@@ -563,10 +568,12 @@
   color: #16A34A;
   font-weight: 500;
   font-family: inherit;
+  padding: 10px;
 }
 .ja-sb-chip.miss {
   background: #FEE2E2;
   color: #DC2626;
+  padding: 10px;
 }
 
 /* ── Fetch status ── */
@@ -745,4 +752,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+#ja-t-role #ja-t-company{
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
