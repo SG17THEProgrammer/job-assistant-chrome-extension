@@ -222,6 +222,8 @@
   // ══════════════════════════════════════════════════════════
   function onFocusIn(e) {
     const el = e.target;
+    // Never trigger on our own injected UI
+    if (sidebar?.contains(el) || bubble?.contains(el) || trackerEl?.contains(el)) return;
     if (!isApplicationField(el)) return;
     activeField = el;
     showBubble(el, aiFilledFields.has(el));
@@ -240,11 +242,21 @@
 
   function isApplicationField(el) {
     if (!el?.tagName) return false;
+    // Never trigger on our own injected UI — belt-and-suspenders guard
+    if (el.closest('#ja-sidebar') || el.closest('#ja-tracker') || el.closest('#ja-bubble')) return false;
     const tag = el.tagName.toUpperCase();
     if (isGoogleForms) {
       return (tag === 'TEXTAREA') || (tag === 'INPUT' && el.type === 'text');
     }
-    if (tag === 'TEXTAREA') return el.getBoundingClientRect().height > 28;
+    if (tag === 'TEXTAREA') {
+      // Skip very small textareas and those with non-essay-like ids
+      const r = el.getBoundingClientRect();
+      if (r.height <= 40) return false;
+      const combined = [el.name, el.id, el.placeholder].filter(Boolean).join(' ').toLowerCase();
+      const SKIP_TA = ['search','comment','message','chat','note','address','street'];
+      if (SKIP_TA.some(w => combined.includes(w))) return false;
+      return true;
+    }
     if (el.getAttribute?.('contenteditable') === 'true') {
       const r = el.getBoundingClientRect();
       return r.height > 50 && r.width > 150;
@@ -359,11 +371,12 @@
       <!-- Header -->
       <div id="ja-sb-header">
         <div id="ja-sb-logo">
+          <div id="ja-sb-mark">JA</div>
           <span id="ja-sb-title">JobAssist <em>AI</em></span>
         </div>
         <div id="ja-sb-header-actions">
           <button id="ja-sb-refresh" title="Refresh ATS score" type="button">↻</button>
-          <button id="ja-sb-minimize" title="Minimize" type="button">></button>
+          <button id="ja-sb-minimize" title="Minimize" type="button">‹</button>
         </div>
       </div>
 
@@ -519,6 +532,7 @@
 
       <!-- Toggle tab (collapsed state) -->
       <div id="ja-sb-toggle-tab" title="Open JobAssist AI">
+        <div id="ja-sb-toggle-mark">JA</div>
         <span id="ja-sb-toggle-label">JobAssist AI</span>
       </div>
     `;
@@ -646,7 +660,7 @@
     statusEl.classList.remove('ja-hidden');
     sidebar.querySelector('#ja-sb-fetch-readme').disabled = true;
 
-    const res = await chrome.runtime.sendMessage({ type: 'FETCH_GITHUB_README', owner, repo });
+    const res = await safeSend({ type: 'FETCH_GITHUB_README', owner, repo });
     sidebar.querySelector('#ja-sb-fetch-readme').disabled = false;
     if (res.error) {
       statusEl.textContent = `⚠ ${res.error}`;
@@ -670,7 +684,7 @@
     statusEl.classList.remove('ja-hidden');
     sidebar.querySelector('#ja-sb-jd-fetch').disabled = true;
 
-    const res = await chrome.runtime.sendMessage({ type: 'FETCH_URL', url });
+    const res = await safeSend({ type: 'FETCH_URL', url });
     sidebar.querySelector('#ja-sb-jd-fetch').disabled = false;
     if (res.error) {
       statusEl.textContent = `⚠ ${res.error}`;
@@ -704,6 +718,27 @@
   }
 
   // ══════════════════════════════════════════════════════════
+  //  SAFE MESSAGE HELPER
+  //  chrome.runtime.sendMessage throws if the extension context
+  //  is invalidated (e.g. after reload). Wrap it safely.
+  // ══════════════════════════════════════════════════════════
+  function safeSend(msg) {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage(msg, (res) => {
+          if (chrome.runtime.lastError) {
+            resolve({ error: chrome.runtime.lastError.message || 'Extension context invalidated. Please reload the page.' });
+          } else {
+            resolve(res || { error: 'No response from extension.' });
+          }
+        });
+      } catch (e) {
+        resolve({ error: e.message || 'Extension context invalidated. Please reload the page.' });
+      }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
   //  GENERATE ANSWER
   // ══════════════════════════════════════════════════════════
   async function runGenerate() {
@@ -720,7 +755,7 @@
     const readmeBtn = sidebar.querySelector('#ja-sb-fetch-readme');
     const readmeContext = readmeBtn?.dataset.readme || null;
 
-    const res = await chrome.runtime.sendMessage({
+    const res = await safeSend({
       type:          'GENERATE_ANSWER',
       question,
       jobDescription: sidebar.querySelector('#ja-sb-jd').value.trim() || jobDesc,
@@ -785,7 +820,7 @@
     resultEl.classList.add('ja-hidden');
     btn.disabled = true;
 
-    const res = await chrome.runtime.sendMessage({
+    const res = await safeSend({
       type:  'TAILOR_RESUME',
       jd,
       style: sidebar.querySelector('#ja-sb-tailor-style').value.trim(),
@@ -819,7 +854,7 @@
     if (!prompt) return;
     const btn = sidebar.querySelector('#ja-sb-tailor-apply');
     btn.disabled = true; btn.textContent = '…';
-    const res = await chrome.runtime.sendMessage({ type: 'EDIT_RESUME', editPrompt: prompt });
+    const res = await safeSend({ type: 'EDIT_RESUME', editPrompt: prompt });
     btn.disabled = false; btn.textContent = 'Apply';
     if (res.error) { showTailorMsg('⚠ ' + res.error, true); return; }
     await chrome.storage.local.set({ tailoredResumeText: res.tailoredResume });
@@ -828,7 +863,7 @@
   }
 
   async function runGeneratePdf() {
-    const res = await chrome.runtime.sendMessage({ type: 'GENERATE_PDF' });
+    const res = await safeSend({ type: 'GENERATE_PDF' });
     if (res.error) showTailorMsg('⚠ ' + res.error, true);
   }
 
@@ -868,7 +903,7 @@
     emptyEl.classList.add('ja-hidden');
     resultEl.classList.add('ja-hidden');
 
-    const res = await chrome.runtime.sendMessage({ type: 'RUN_ATS', jd });
+    const res = await safeSend({ type: 'RUN_ATS', jd });
     loadEl.classList.add('ja-hidden');
 
     if (res.error) {
@@ -1062,7 +1097,7 @@
     const btn     = document.getElementById('ja-tracker-save');
     if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
-    await chrome.runtime.sendMessage({
+    await safeSend({
       type: 'LOG_APPLICATION',
       company, role,
       url:  location.href,
@@ -1205,6 +1240,68 @@
     const url  = location.href;
     const path = location.pathname;
 
+    // ── 0. __NEXT_DATA__ (universal — Next.js sites) ─────
+    // Wellfound, Otta, Notion Jobs, and many modern ATS embed full job
+    // data in the server-rendered __NEXT_DATA__ JSON. We parse it
+    // directly — no CSS selectors, never breaks on layout changes.
+    // Only attempt on pages that look like a single job detail page,
+    // not on search/listing/feed pages (those have many jobs and
+    // extractFromNextData would grab the wrong one).
+    try {
+      const nextScript = document.getElementById('__NEXT_DATA__');
+      const isSearchPage = /\/jobs\?|\/?search|\/?feed|\/listings?\?|\/?results/i.test(location.pathname + location.search);
+      if (nextScript && !isSearchPage) {
+        const nextData = JSON.parse(nextScript.textContent);
+        const jdText = extractFromNextData(nextData);
+        if (jdText?.text && jdText.text.length > 200) {
+          setJobDesc(jdText.text, jdText.title || '', jdText.company || '');
+          return true;
+        }
+      }
+    } catch {}
+
+    // ── 0b. Wellfound / AngelList ────────────────────────
+    // wellfound.com/jobs?job_listing_slug=ID-slug OR /jobs/ID-slug
+    // Their __NEXT_DATA__ nests the job under Apollo cache keys like
+    // ROOT_QUERY > jobListing({"slug":"..."}) > description
+    // We also try their public internal API endpoint.
+    if (host === 'wellfound.com' || host.endsWith('.wellfound.com')
+      || host === 'angel.co' || host.endsWith('.angel.co')) {
+      // Try __NEXT_DATA__ first (covers most Wellfound pages)
+      try {
+        const nextScript = document.getElementById('__NEXT_DATA__');
+        if (nextScript) {
+          const nd = JSON.parse(nextScript.textContent);
+          const found = extractFromNextData(nd);
+          if (found?.text?.length > 200) {
+            setJobDesc(found.text, found.title, found.company);
+            return true;
+          }
+        }
+      } catch {}
+
+      // DOM fallback — Wellfound renders description server-side
+      const selectors = [
+        '[class*="jobListing"] [class*="description"]',
+        '[class*="job-listing"] [class*="description"]',
+        '[data-test="JobDescription"]',
+        '[class*="styles_description"]',
+        '.job-description',
+        'main section:nth-child(2)',
+      ];
+      for (const sel of selectors) {
+        try {
+          const el = document.querySelector(sel);
+          if (el && el.innerText.trim().length > 200) {
+            const title = document.querySelector('h1')?.innerText?.trim() || '';
+            const company = document.querySelector('[class*="company"] h2,[class*="startup"] h2')?.innerText?.trim() || '';
+            setJobDesc(el.innerText.trim(), title, company);
+            return true;
+          }
+        } catch {}
+      }
+    }
+
     // ── 1. Ashby: jobs.ashbyhq.com/COMPANY/UUID ──────────
     if (host === 'jobs.ashbyhq.com' || host.endsWith('.ashbyhq.com')) {
       const uuid = url.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)?.[1];
@@ -1275,6 +1372,28 @@
       }
     }
 
+    // ── 4b. Indeed: jobsearch-jobDescriptionText ─────────
+    // Indeed renders JD server-side, so this DOM sel is reliable
+    if (host.includes('indeed.com')) {
+      const el = document.querySelector('#jobDescriptionText, [class*="jobsearch-jobDescriptionText"]');
+      if (el && el.innerText.length > 100) {
+        setJobDesc(el.innerText.trim(), document.querySelector('h1')?.innerText || '', 'Indeed');
+        return true;
+      }
+    }
+
+    // ── 4c. LinkedIn: JSON-LD is always present on job pages ─
+    if (host.includes('linkedin.com')) {
+      const jsonLd = extractJsonLd('JobPosting');
+      if (jsonLd) {
+        const text = stripHtml(jsonLd.description || '');
+        if (text.length > 100) {
+          setJobDesc(text, jsonLd.title || '', jsonLd.hiringOrganization?.name || '');
+          return true;
+        }
+      }
+    }
+
     // ── 5. JSON-LD schema.org/JobPosting (universal) ─────
     // Many ATS platforms embed this: LinkedIn, Indeed, SmartRecruiters, etc.
     const jsonLd = extractJsonLd('JobPosting');
@@ -1291,6 +1410,64 @@
     }
 
     return false;
+  }
+
+  // ── Walk __NEXT_DATA__ looking for a job posting node ──
+  // STRICT: only matches objects that have BOTH a title-like field
+  // AND a long description that contains actual job-posting language.
+  // This prevents matching company bios, page metadata, etc.
+  function extractFromNextData(obj, depth = 0) {
+    if (!obj || typeof obj !== 'object' || depth > 12) return null;
+
+    const JOB_SIGNALS = ['responsib','qualif','require','experienc','skill','about the role',
+      "what you'll",'what you will','you will','we are looking',"we're looking",
+      'role','position','join our','team','candidate'];
+
+    // Check if this object looks like a genuine job posting
+    // Must have: a title-like string + a long description with job language
+    const descKey  = ['description','descriptionPlain','jobDescription','body'].find(
+      k => typeof obj[k] === 'string' && obj[k].length > 300
+    );
+    const titleKey = ['title','jobTitle','roleName','position','name'].find(
+      k => typeof obj[k] === 'string' && obj[k].length > 2 && obj[k].length < 120
+    );
+
+    if (descKey && titleKey) {
+      const raw = obj[descKey];
+      const text = raw.startsWith('<') ? stripHtml(raw)
+                 : raw.replace(/#{1,6}\s+/g, '').replace(/\*\*/g, '').replace(/[*_]/g, '').trim();
+      const lc = text.toLowerCase();
+
+      // Must smell like a job description — not a company blurb or page meta
+      const isJobText = JOB_SIGNALS.some(w => lc.includes(w));
+      if (!isJobText) return null;
+
+      // Company name: check sibling keys and one-level-up nesting
+      let company = obj.companyName || obj.organizationName || obj.employer || '';
+      if (!company && obj.startup)        company = obj.startup?.name || obj.startup?.companyName || '';
+      if (!company && obj.startupListing) company = obj.startupListing?.name || '';
+      if (!company && obj.organization)   company = obj.organization?.name || '';
+      if (!company && obj.company)        company = typeof obj.company === 'string' ? obj.company : obj.company?.name || '';
+
+      return { text, title: obj[titleKey], company };
+    }
+
+    // Recurse — prioritise known job-data keys first
+    const PRIORITY = ['props','pageProps','dehydratedState','queries','data',
+      'jobListing','jobPosting','job','listing','result','node','jobListings',
+      'highlightedJobListings','jobListingSearchResult','startupJobListings'];
+    const keys = Array.isArray(obj)
+      ? Array.from({length: obj.length}, (_, i) => i)
+      : [...PRIORITY.filter(k => k in obj), ...Object.keys(obj).filter(k => !PRIORITY.includes(k))];
+
+    for (const key of keys) {
+      const val = obj[key];
+      if (val && typeof val === 'object') {
+        const found = extractFromNextData(val, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   function extractJsonLd(type) {
