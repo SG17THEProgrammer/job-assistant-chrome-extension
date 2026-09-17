@@ -10,7 +10,6 @@
 
     <header class="header">
       <div class="logo">
-        <!-- <div class="logo-mark">JA</div> -->
         <div class="logo-text">JobAssist <em>AI</em></div>
       </div>
       <div class="status-pill" id="statusPill">Setup needed</div>
@@ -27,8 +26,6 @@
 
     <!-- ── PROFILE TAB ── -->
     <section class="pane active" id="tab-profile">
-
-      <!-- Resume upload -->
       <div class="section-title">Resume</div>
       <div class="field">
         <div class="upload-zone" id="uploadZone">
@@ -38,71 +35,38 @@
           <input type="file" id="resumeFile" accept=".pdf,.txt" hidden />
           <button class="btn-sm" id="browseBtn">Choose file</button>
         </div>
-
         <div class="file-pill hidden" id="filePill">
           <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" stroke="#16A34A" stroke-width="1.2"/><path d="M4.5 7l2 2 3-3" stroke="#16A34A" stroke-width="1.2" stroke-linecap="round"/></svg>
           <span id="fileName">resume.pdf</span>
           <button class="pill-remove" id="removeFile">×</button>
         </div>
-
-        <!-- FIX 1: PDF text extraction notice -->
         <div class="pdf-extract-note hidden" id="pdfExtractNote">
           <span>⚠ Text not extracted yet — AI reads PDF directly (slower). Save your API key first, then:</span>
           <button class="btn-sm" id="extractPdfBtn" style="margin-top:5px;width:100%">Extract &amp; save text</button>
         </div>
       </div>
 
-      <!-- Personal info -->
       <div class="section-title">Personal info</div>
       <div class="field-row">
-        <div class="field">
-          <label>First name</label>
-          <input type="text" class="inp" id="firstName" placeholder="Rahul" />
-        </div>
-        <div class="field">
-          <label>Last name</label>
-          <input type="text" class="inp" id="lastName" placeholder="Sharma" />
-        </div>
+        <div class="field"><label>First name</label><input type="text" class="inp" id="firstName" placeholder="Rahul" /></div>
+        <div class="field"><label>Last name</label><input type="text" class="inp" id="lastName" placeholder="Sharma" /></div>
       </div>
-      <div class="field">
-        <label>Email</label>
-        <input type="email" class="inp" id="email" placeholder="rahul@email.com" />
-      </div>
+      <div class="field"><label>Email</label><input type="email" class="inp" id="email" placeholder="rahul@email.com" /></div>
       <div class="field-row">
-        <div class="field">
-          <label>Phone / Mobile</label>
-          <input type="tel" class="inp" id="phone" placeholder="+91 98765 43210" />
-        </div>
-        <div class="field">
-          <label>Date of birth <span class="opt">optional</span></label>
-          <input type="text" class="inp" id="dob" placeholder="DD/MM/YYYY" />
-        </div>
+        <div class="field"><label>Phone / Mobile</label><input type="tel" class="inp" id="phone" placeholder="+91 98765 43210" /></div>
+        <div class="field"><label>Date of birth <span class="opt">optional</span></label><input type="text" class="inp" id="dob" placeholder="DD/MM/YYYY" /></div>
       </div>
 
-      <!-- Location -->
       <div class="section-title">Location</div>
       <div class="field-row">
-        <div class="field">
-          <label>City</label>
-          <input type="text" class="inp" id="city" placeholder="Mumbai" />
-        </div>
-        <div class="field">
-          <label>State</label>
-          <input type="text" class="inp" id="state" placeholder="Maharashtra" />
-        </div>
+        <div class="field"><label>City</label><input type="text" class="inp" id="city" placeholder="Mumbai" /></div>
+        <div class="field"><label>State</label><input type="text" class="inp" id="state" placeholder="Maharashtra" /></div>
       </div>
       <div class="field-row">
-        <div class="field">
-          <label>Country</label>
-          <input type="text" class="inp" id="country" placeholder="India" />
-        </div>
-        <div class="field">
-          <label>ZIP / Pincode</label>
-          <input type="text" class="inp" id="zipcode" placeholder="400001" />
-        </div>
+        <div class="field"><label>Country</label><input type="text" class="inp" id="country" placeholder="India" /></div>
+        <div class="field"><label>ZIP / Pincode</label><input type="text" class="inp" id="zipcode" placeholder="400001" /></div>
       </div>
 
-      <!-- Professional links -->
       <div class="section-title">Professional links</div>
       <div class="field">
         <label>LinkedIn URL</label>
@@ -118,41 +82,23 @@
         <label>GitHub URL</label>
         <div class="input-row">
           <input type="url" class="inp" id="githubUrl" placeholder="https://github.com/yourhandle" />
-          <!-- FIX 2: Verify button now also refreshes dynamically -->
           <button class="btn-connect" id="connectGitHub" title="Fetch / refresh profile">
             <svg width="14" height="14" viewBox="0 0 14 14"><path fill-rule="evenodd" clip-rule="evenodd" d="M7 0C3.13 0 0 3.22 0 7.2c0 3.18 2.02 5.88 4.82 6.84.35.06.48-.16.48-.35v-1.22c-1.96.44-2.37-.97-2.37-.97-.32-.84-.78-1.06-.78-1.06-.64-.45.05-.44.05-.44.71.05 1.08.75 1.08.75.63 1.1 1.65.79 2.05.6.06-.47.24-.79.44-.97-1.57-.18-3.22-.8-3.22-3.58 0-.79.27-1.44.72-1.94-.07-.19-.31-.92.07-1.91 0 0 .59-.2 1.93.73A6.6 6.6 0 017 3.42c.6 0 1.2.08 1.76.24 1.34-.93 1.93-.73 1.93-.73.38.99.14 1.72.07 1.91.45.5.71 1.15.71 1.94 0 2.79-1.66 3.4-3.23 3.58.25.22.48.67.48 1.35v2c0 .19.12.41.48.35C11.98 13.07 14 10.37 14 7.2 14 3.22 10.87 0 7 0z" fill="#1F2937"/></svg>
           </button>
         </div>
         <p class="field-note" id="githubStatus"></p>
-        <!-- FIX 2: Explicit refresh button -->
         <button class="btn-sm" id="refreshGitHubBtn" style="margin-top:4px">↻ Refresh GitHub repos</button>
       </div>
-      <div class="field">
-        <label>Portfolio / Website <span class="opt">optional</span></label>
-        <input type="url" class="inp" id="portfolioUrl" placeholder="https://yoursite.com" />
-      </div>
+      <div class="field"><label>Portfolio / Website <span class="opt">optional</span></label><input type="url" class="inp" id="portfolioUrl" placeholder="https://yoursite.com" /></div>
 
-      <!-- Work preferences -->
       <div class="section-title">Work preferences</div>
       <div class="field-row">
-        <div class="field">
-          <label>Current CTC <span class="opt">optional</span></label>
-          <input type="text" class="inp" id="currentCtc" placeholder="e.g. 8 LPA" />
-        </div>
-        <div class="field">
-          <label>Expected CTC</label>
-          <input type="text" class="inp" id="expectedCtc" placeholder="e.g. 12 LPA" />
-        </div>
+        <div class="field"><label>Current CTC <span class="opt">optional</span></label><input type="text" class="inp" id="currentCtc" placeholder="e.g. 8 LPA" /></div>
+        <div class="field"><label>Expected CTC</label><input type="text" class="inp" id="expectedCtc" placeholder="e.g. 12 LPA" /></div>
       </div>
       <div class="field-row">
-        <div class="field">
-          <label>Notice period</label>
-          <input type="text" class="inp" id="noticePeriod" placeholder="e.g. 30 days" />
-        </div>
-        <div class="field">
-          <label>Years of experience</label>
-          <input type="text" class="inp" id="experience" placeholder="e.g. 2" />
-        </div>
+        <div class="field"><label>Notice period</label><input type="text" class="inp" id="noticePeriod" placeholder="e.g. 30 days" /></div>
+        <div class="field"><label>Years of experience</label><input type="text" class="inp" id="experience" placeholder="e.g. 2" /></div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -185,7 +131,6 @@
         </div>
       </div>
 
-      <!-- Education -->
       <div class="section-title">Education</div>
       <div class="field">
         <label>Highest degree</label>
@@ -205,27 +150,16 @@
           <option value="other">Other</option>
         </select>
       </div>
-      <div class="field">
-        <label>College / University</label>
-        <input type="text" class="inp" id="college" placeholder="IIT Delhi, VIT Vellore…" />
-      </div>
+      <div class="field"><label>College / University</label><input type="text" class="inp" id="college" placeholder="IIT Delhi, VIT Vellore…" /></div>
       <div class="field-row">
-        <div class="field">
-          <label>Graduation year</label>
-          <input type="text" class="inp" id="gradYear" placeholder="2024" />
-        </div>
-        <div class="field">
-          <label>CGPA / Percentage</label>
-          <input type="text" class="inp" id="cgpa" placeholder="8.5 / 85%" />
-        </div>
+        <div class="field"><label>Graduation year</label><input type="text" class="inp" id="gradYear" placeholder="2024" /></div>
+        <div class="field"><label>CGPA / Percentage</label><input type="text" class="inp" id="cgpa" placeholder="8.5 / 85%" /></div>
       </div>
 
-      <!-- Extra context -->
       <div class="section-title">Extra context for AI</div>
       <div class="field">
         <label>Anything else the AI should know <span class="opt">optional</span></label>
-        <textarea class="inp ta" id="extraContext" rows="3"
-          placeholder="Career goals, strengths, preferred industries, things to avoid mentioning…"></textarea>
+        <textarea class="inp ta" id="extraContext" rows="3" placeholder="Career goals, strengths, preferred industries, things to avoid mentioning…"></textarea>
       </div>
 
       <button class="btn-primary" id="saveProfile">Save profile</button>
@@ -234,21 +168,11 @@
 
     <!-- ── RESUME TAB ── -->
     <section class="pane" id="tab-resume">
-      <div class="resume-intro">
-        Paste a job description and click <strong>Tailor resume</strong> to get an ATS-optimised PDF for that role.
-      </div>
-      <div class="field">
-        <label>Job description</label>
-        <textarea class="inp ta" id="jdForResume" rows="6" placeholder="Paste the full job description here…"></textarea>
-      </div>
-      <div class="field">
-        <label>Style instructions <span class="opt">optional</span></label>
-        <textarea class="inp ta" id="resumeStyle" rows="2" placeholder='e.g. "Keep to 1 page. Use bullet points."'></textarea>
-      </div>
+      <div class="resume-intro">Paste a job description and click <strong>Tailor resume</strong> to get an ATS-optimised PDF for that role.</div>
+      <div class="field"><label>Job description</label><textarea class="inp ta" id="jdForResume" rows="6" placeholder="Paste the full job description here…"></textarea></div>
+      <div class="field"><label>Style instructions <span class="opt">optional</span></label><textarea class="inp ta" id="resumeStyle" rows="2" placeholder='e.g. "Keep to 1 page. Use bullet points."'></textarea></div>
       <button class="btn-primary" id="tailorResume">Tailor my resume →</button>
-      <div class="loading-row hidden" id="resumeLoading">
-        <div class="spinner"></div><span>Tailoring your resume…</span>
-      </div>
+      <div class="loading-row hidden" id="resumeLoading"><div class="spinner"></div><span>Tailoring your resume…</span></div>
       <div class="resume-result hidden" id="resumeResult">
         <div class="ats-bar">
           <span class="ats-label">ATS score</span>
@@ -256,16 +180,13 @@
           <span class="ats-score" id="atsScore">—</span>
         </div>
         <div class="keyword-section">
-          <p class="kw-title">Matched</p>
-          <div class="kw-chips" id="matchedKw"></div>
-          <p class="kw-title missing">Missing</p>
-          <div class="kw-chips" id="missingKw"></div>
+          <p class="kw-title">Matched</p><div class="kw-chips" id="matchedKw"></div>
+          <p class="kw-title missing">Missing</p><div class="kw-chips" id="missingKw"></div>
         </div>
         <div class="field" style="margin-top:8px">
           <label>Edit resume in plain English</label>
           <div class="input-row">
-            <input type="text" class="inp" id="resumeEditPrompt"
-              placeholder='e.g. "Add more detail on my React projects"' />
+            <input type="text" class="inp" id="resumeEditPrompt" placeholder='e.g. "Add more detail on my React projects"' />
             <button class="btn-sm" id="applyEdit">Apply</button>
           </div>
         </div>
@@ -294,26 +215,16 @@
           <option value="formal">Formal</option>
         </select>
       </div>
-      <div class="field">
-        <label>Custom instruction <span class="opt">optional</span></label>
-        <textarea class="inp ta" id="customInstruction" rows="2"
-          placeholder='e.g. "Always mention my open-source contributions"'></textarea>
-      </div>
+      <div class="field"><label>Custom instruction <span class="opt">optional</span></label><textarea class="inp ta" id="customInstruction" rows="2" placeholder='e.g. "Always mention my open-source contributions"'></textarea></div>
       <div class="field">
         <div class="toggle-row">
-          <div>
-            <strong>Auto-fill on focus</strong>
-            <p class="field-note">Generate &amp; fill the field the moment you click it</p>
-          </div>
+          <div><strong>Auto-fill on focus</strong><p class="field-note">Generate &amp; fill the field the moment you click it</p></div>
           <div class="toggle" id="autoFillToggle"><div class="knob"></div></div>
         </div>
       </div>
       <div class="field">
         <div class="toggle-row">
-          <div>
-            <strong>Auto-detect job description</strong>
-            <p class="field-note">Scan the page for JD text to use as context</p>
-          </div>
+          <div><strong>Auto-detect job description</strong><p class="field-note">Scan the page for JD text to use as context</p></div>
           <div class="toggle on" id="autoJdToggle"><div class="knob"></div></div>
         </div>
       </div>
@@ -339,12 +250,10 @@
     <!-- ── MY CONTEXT TAB ── -->
     <section class="pane" id="tab-context">
       <div class="context-intro">
-        <p>Everything the AI knows about you. Expand any section. Missing items auto-expand.</p>
+        <p>Everything the AI knows about you. Expand any section.</p>
         <button class="btn-outline" id="refreshContext" style="width:100%">↻ Refresh</button>
       </div>
-      <div class="loading-row hidden" id="contextLoading">
-        <div class="spinner"></div><span>Loading…</span>
-      </div>
+      <div class="loading-row hidden" id="contextLoading"><div class="spinner"></div><span>Loading…</span></div>
       <div id="contextSections"></div>
     </section>
 
@@ -361,8 +270,8 @@
         <p class="field-note">Stored locally only. Get yours at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></p>
       </div>
       <div class="callout">
-        <strong>Note on PDF resume</strong> — After adding your API key, go to the Profile tab and click "Extract &amp; save text" to convert your PDF into text. This makes the AI faster and more accurate.<br><br>
-        <strong>GitHub</strong> — The verify button fetches your repos live. Click "↻ Refresh GitHub repos" any time to update the list.<br><br>
+        <strong>Note on PDF resume</strong> — After adding your API key, go to Profile tab and click "Extract &amp; save text" to convert your PDF into text. This makes the AI faster and more accurate.<br><br>
+        <strong>GitHub</strong> — The verify button fetches your repos live. Click "↻ Refresh GitHub repos" any time to update.<br><br>
         <strong>LinkedIn</strong> — URL is used as context. Full data requires LinkedIn OAuth approval.
       </div>
       <button class="btn-primary" id="saveKey">Save key</button>
