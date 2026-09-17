@@ -1,5 +1,5 @@
 // ── Gemini API callers ────────────────────────────────────────
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
 
 export async function gemini(apiKey, systemText, userText, maxTokens = 800) {
   try {

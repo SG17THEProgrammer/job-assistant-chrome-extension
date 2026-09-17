@@ -3,6 +3,7 @@
   "name": "JobAssist AI",
   "version": "3.0.0",
   "description": "Auto-fill job applications, tailor your resume, and beat ATS — powered by Gemini AI.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxStyLGsMrT8NytRd83c1/q9TuNLMvfRsLg/1Q574inS9scMwjIsKWL7GImlDP6lWc/uBwkezjOZHzzZxc+k2U+apWDOGC/8ErG0aB7M3d2gW82yfXbuvVX8szWNVNEftiAJ23Zj6c0+rD8r04/izzCK6yPpzWB26vlZPaZkRuCn0qwKaF9hJJsPfqKKRPsNPihuUXcMaz6ur1w5WVnZNBWS8PfWBOO6fp4N46jNEYG3/4WLx21LZyi6qeNR61YJ0IqSeGZgnYCCB3h4tILR7BPlUR9Na0cL0/8JudY/i28NeBrzULM/vN+hkq9HflJJl0jZKgX8d4wLCQlm4PNlWpQIDAQAB",
   "permissions": [
     "storage",
     "activeTab",
@@ -28,14 +29,12 @@
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "assets/icon128.png",
-      "32": "assets/icon128.png",
       "48": "assets/icon128.png",
       "128": "assets/icon128.png"
     }
   },
   "icons": {
     "16": "assets/icon128.png",
-    "32": "assets/icon128.png",
     "48": "assets/icon128.png",
     "128": "assets/icon128.png"
   },

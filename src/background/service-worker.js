@@ -13,6 +13,55 @@ import { saveApiKey, getApiKey, testApi }    from './handlers/crypto.js';
 import { handleFetchUrl }                    from './handlers/fetch.js';
 import { handleLogApplication }              from './handlers/tracker.js';
 
+// ── Keys that are safe to mirror to sync storage ─────────────
+// These survive extension removal/reinstall (up to 100KB quota).
+// Excluded: resumeBase64 (too large), apiKeyEnc/apiKey (security),
+//           resumeText (can be large), githubData (re-fetchable).
+const SYNC_KEYS = [
+  'firstName','lastName','email','phone','dob',
+  'city','state','country','zipcode',
+  'linkedinUrl','githubUrl','portfolioUrl',
+  'currentCtc','expectedCtc','noticePeriod','experience',
+  'workAuth','relocate','workMode',
+  'degree','college','gradYear','cgpa',
+  'extraContext','customInstruction','answerStyle','tone',
+  'autoFill','autoJd','companies','resumeFileName',
+];
+
+// On install/update: if local is empty, restore from sync
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    const local = await new Promise(r => chrome.storage.local.get(SYNC_KEYS, r));
+    const hasLocalData = SYNC_KEYS.some(k => local[k] != null && local[k] !== '');
+    if (!hasLocalData) {
+      const synced = await new Promise(r => chrome.storage.sync.get(SYNC_KEYS, r));
+      const hasSyncData = SYNC_KEYS.some(k => synced[k] != null && synced[k] !== '');
+      if (hasSyncData) {
+        await new Promise(r => chrome.storage.local.set(synced, r));
+        console.log('[JobAssist] Profile data restored from sync storage.');
+      }
+    }
+  } catch (e) {
+    console.warn('[JobAssist] Restore from sync failed:', e.message);
+  }
+});
+
+// Whenever local storage changes, mirror safe keys to sync
+chrome.storage.local.onChanged.addListener(changes => {
+  const toSync = {};
+  for (const key of SYNC_KEYS) {
+    if (key in changes && changes[key].newValue !== undefined) {
+      toSync[key] = changes[key].newValue;
+    }
+  }
+  if (Object.keys(toSync).length > 0) {
+    chrome.storage.sync.set(toSync).catch(() => {
+      // sync quota exceeded — ignore silently, local still has the data
+    });
+  }
+});
+
+// ── Message router ────────────────────────────────────────────
 const HANDLERS = {
   GENERATE_ANSWER:     handleGenerateAnswer,
   TAILOR_RESUME:       handleTailorResume,
